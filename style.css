@@ -1,0 +1,127 @@
+/* Reset básico */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+/* Corpo da página */
+body {
+  background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+  color: #333;
+  min-height: 100vh;
+  display: block;
+  justify-content: center;
+  align-items: center;
+  padding: 30px;
+  font-size: 1.2rem; /* Base maior */
+  line-height: 1.6;
+}
+
+/* Container principal */
+.container {
+  background: #fff;
+  border-radius: 15px;
+  padding: 40px;
+  max-width: 1400px;
+  width: 100%;
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.12);
+  min-height: 580px; /* Mantido */
+  margin-top:10px;
+   margin-bottom: 100px;
+   margin:10px auto;
+  
+}
+
+/* Título */
+.container h1 {
+  text-align: center;
+  color: #2e7d32;
+  margin-bottom: 20px;
+  font-size: 2.5rem; /* maior destaque */
+  font-weight: bold;
+  flex: 0;
+}
+
+/* Rótulos */
+label {
+  display: block;
+  margin-top: 12px;
+  font-weight: bold;
+  color: #2e7d32;
+  font-size: 1.2rem;
+}
+
+/* Selects */
+select {
+  width: 100%;
+  padding: 14px;
+  border: 2px solid #a5d6a7;
+  border-radius: 10px;
+  background: #f1f8e9;
+  margin-top: 8px;
+  font-size: 1.2rem;
+  transition: border 0.3s ease, box-shadow 0.3s ease;
+  overflow: hidden;
+}
+
+select:focus {
+  border-color: #66bb6a;
+  outline: none;
+  box-shadow: 0 0 6px rgba(102, 187, 106, 0.5);
+}
+
+/* Botão */
+button {
+  margin-top: 20px;
+  width: 100%;
+  padding: 14px;
+  background: #43a047;
+  color: white;
+  font-size: 1.3rem;
+  font-weight: bold;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+button:hover {
+  background: #2e7d32;
+  transform: scale(1.02);
+}
+
+/* Resultado */
+#resultado {
+  margin-top: 20px;
+  background: #f1f8e9;
+  padding: 25px;
+  border-radius: 12px;
+  border-left: 6px solid #43a047;
+  font-size: 1.4rem; /* ocupa espaço extra */
+}
+
+#resultado strong {
+  color: #2e7d32;
+}
+
+/* Responsividade */
+@media (max-width: 600px) {
+  .container {
+    padding: 25px;
+    max-width: 100%;
+    gap: 20px;
+  }
+
+  .container h1 {
+    font-size: 2rem;
+  }
+
+  select,
+  button,
+  label,
+  #resultado {
+    font-size: 1.2rem;
+  }
+}
