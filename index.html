@@ -1,114 +1,121 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
+<!DOCTYPE html><html lang="pt-BR">
 <head>
-  <meta name="google-site-verification" content="-2xsMwQkY93C4kgW1fRAF0xyCxTqE0__nhGQHI2nDtk" />
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Diagnóstico Agrícola</title>
-  <meta name="description" content="Saiba mais sobre o projeto Diagnóstico Agrícola.">
-  <style>
-    body {
-      font-family: "Segoe UI", Arial, sans-serif;
-      background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
-      color: #333;
-      margin: 0;
-      display: flex;
-      justify-content: center;
-      padding: 20px 0;
-    }
+  <title>Controle Financeiro</title>  <style>
+    body { margin:0; font-family: Arial; background:#f5f6fa; }
+    header { background:#2f3640; color:white; padding:15px; text-align:center; }
+    .container { max-width:1000px; margin:auto; padding:15px; }
+    .card { background:white; padding:15px; margin-bottom:15px; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.1);} 
 
-    .container {
-      background: #fff;
-      border-radius: 15px;
-      padding: 25px;
-      max-width: 1200px;
-      width: 90%;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.05); /* sombra mais suave */
-      display: flex;
-      flex-direction: column;
-      min-height: 490px;
-    }
+    input, select, button { width:100%; padding:10px; margin-top:10px; border-radius:8px; border:1px solid #ccc; }
+    button { background:#27ae60; color:white; border:none; font-weight:bold; cursor:pointer; }
 
-    h1 {
-      color: #2e7d32;
-      margin-bottom: 30px;
-      text-align: center;
-      font-size: 2em; /* ligeiro aumento do título */
-    }
+    table { width:100%; border-collapse: collapse; margin-top:10px; }
+    th, td { padding:10px; text-align:left; border-bottom:1px solid #ddd; }
+    th { background:#eee; }
 
-    p {
-      margin: 15px 0;
-      line-height: 1.8;
-      text-align: justify;
-      font-size: 1.3em; /* aumento discreto da fonte */
-    }
+    .entrada { color:green; }
+    .saida { color:red; }
 
-    a {
-      display: inline-block;
-      margin-top: 30px;
-      text-decoration: none;
-      color: white;
-      background-color: #43a047;
-      padding: 12px 20px;
-      border-radius: 8px;
-      transition: background 0.3s;
-      align-self: center;
-      font-size: 1.05em; /* fonte levemente maior */
-    }
+    .saldo { font-size:18px; font-weight:bold; margin-top:10px; }
+  </style></head>
+<body><header>Controle Financeiro (Caixa)</header><div class="container">  <div class="card">
+    <h3>Nova Movimentação</h3>
+    <input type="text" id="descricao" placeholder="Descrição">
+    <input type="number" id="valor" placeholder="Valor"><select id="tipo">
+  <option value="entrada">Entrada</option>
+  <option value="saida">Saída</option>
+</select>
 
-    a:hover {
-      background-color: #2e7d32;
-      
-    }
+<input type="file" id="arquivo">
+<button onclick="salvar()">Salvar</button>
 
-   footer {
-  text-align: center;
-  padding: 8px 15px;
-  background-color: #40463d;
-  color: #f0f7f0;
-  font-size: 0.9em;
-  border-radius: 8px;
-  margin-top: 40px;      /* empurra para o final do container */
-  margin-left: auto;     /* centraliza horizontalmente */
-  margin-right: auto;    /* centraliza horizontalmente */
-  max-width: 590px;      /* largura menor que o container */
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  </div>  <div class="card">
+    <h3>Caixa</h3>
+    <div class="saldo">Saldo Atual: R$ <span id="saldo">0</span></div><table>
+  <thead>
+    <tr>
+      <th>Data</th>
+      <th>Descrição</th>
+      <th>Tipo</th>
+      <th>Valor</th>
+      <th>Saldo após</th>
+      <th>Comprovante</th>
+    </tr>
+  </thead>
+  <tbody id="tabela"></tbody>
+</table>
+
+  </div></div><script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script><script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script><script>
+const firebaseConfig = {
+  apiKey: "SUA_API_KEY",
+  authDomain: "SEU_PROJETO.firebaseapp.com",
+  projectId: "SEU_PROJETO",
+  storageBucket: "SEU_PROJETO.appspot.com",
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const storage = firebase.storage();
+
+async function salvar() {
+  const descricao = document.getElementById("descricao").value;
+  const valor = parseFloat(document.getElementById("valor").value);
+  const tipo = document.getElementById("tipo").value;
+  const file = document.getElementById("arquivo").files[0];
+
+  let url = "";
+
+  if (file) {
+    const ref = storage.ref("comprovantes/" + Date.now() + "-" + file.name);
+    await ref.put(file);
+    url = await ref.getDownloadURL();
+  }
+
+  await db.collection("movimentacoes").add({
+    descricao,
+    valor,
+    tipo,
+    comprovante: url,
+    data: new Date()
+  });
+
+  alert("Salvo!");
 }
 
+// Atualizar tabela com saldo
+db.collection("movimentacoes")
+  .orderBy("data", "asc")
+  .onSnapshot(snapshot => {
+    const tabela = document.getElementById("tabela");
+    const saldoEl = document.getElementById("saldo");
 
-    @media (max-width: 600px) {
-      .container {
-        padding: 20px;
+    tabela.innerHTML = "";
+    let saldo = 0;
+
+    snapshot.forEach(doc => {
+      const d = doc.data();
+
+      if (d.tipo === "entrada") {
+        saldo += d.valor;
+      } else {
+        saldo -= d.valor;
       }
-      a {
-        font-size: 1em;
-      }
-      footer {
-        font-size: 0.9em;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>Mostra Científica 🌱</h1>
 
-    <p>
-      Produzido pelos alunos (Cauãn Kaminski, Felipe Pavan, Gabriel Klemm, Otavio Tonial) 
-      do 1° Ano do Curso Técnico Integrado ao Ensino Médio, cursos Técnico em Informática 
-      e Técnico em Agropecuária.
-    </p>
-    <p>
-      Este site foi criado para ajudar agricultores a identificar pragas e doenças nas lavouras 
-      de forma rápida e simples. Nosso objetivo é fornecer um diagnóstico inicial e indicar 
-      medidas de manejo adequadas.
-    </p>
+      tabela.innerHTML += `
+        <tr>
+          <td>${new Date(d.data.seconds * 1000).toLocaleDateString()}</td>
+          <td>${d.descricao}</td>
+          <td class="${d.tipo}">${d.tipo}</td>
+          <td>R$ ${d.valor}</td>
+          <td>R$ ${saldo.toFixed(2)}</td>
+          <td>${d.comprovante ? `<a href="${d.comprovante}" target="_blank">Ver</a>` : "-"}</td>
+        </tr>
+      `;
+    });
 
-    <a href="sobre.html">Clique aqui para realizar seus diagnósticos</a>
-
-    <footer>
-      Os dados foram coletados de fontes confiáveis e adaptados para uso prático no campo.
-    </footer>
-  </div>
-</body>
+    saldoEl.innerText = saldo.toFixed(2);
+  });
+</script></body>
 </html>
