@@ -16,12 +16,11 @@
     .jogo { display:grid; grid-template-columns: 1fr auto 1fr; align-items:center; background:#1e293b; padding:10px; margin:6px 0; border-radius:10px; gap:8px; }
     .time { text-align:center; font-size:13px; font-weight: bold; }
     .placar { display:flex; gap:5px; align-items:center; }
-    .placar input { width:40px; height:35px; text-align:center; border-radius: 5px; border: none; background: white; color: black; }
+    .placar input { width:40px; height:35px; text-align:center; border-radius: 5px; border: none; background: white; color: black; font-weight: bold; }
     .chave { display:flex; justify-content:space-between; margin-top:20px; gap:20px; }
     .coluna { flex:1; display:flex; flex-direction:column; justify-content:center; }
     .coluna h3 { text-align:center; color:#9ca3af; }
     .duelo { background:#0f172a; padding:12px; border-radius:14px; margin-bottom:20px; border:1px solid #1e3a8a; }
-    .btn-penalti { cursor:pointer; font-size:22px; margin:0 2px; }
     #admin-controls { display: none; background: #16213e; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px dashed #3b82f6; }
 </style></head><body>
 
@@ -32,10 +31,10 @@
 
 <div class="container">
     <div id="admin-controls">
-        <input id="novoTime" placeholder="Digite um time">
-        <button onclick="window.adicionarTime()">Adicionar Time</button>
-        <button id="btnFinalizarLiga" onclick="window.finalizarLiga()">Finalizar Liga</button>
-        <button class="btn-reiniciar" onclick="window.reiniciarTudo()">🔄 Reiniciar Campeonato</button>
+        <input id="novoTime" placeholder="Nome do time">
+        <button id="addTimeBtn">Adicionar Time</button>
+        <button id="btnFinalizarLiga">Finalizar Liga (Gerar Mata-Mata)</button>
+        <button id="btnReiniciarTudo" class="btn-reiniciar">🔄 Reiniciar Campeonato</button>
     </div>
 
     <table id="tabela">
@@ -45,22 +44,20 @@
         <tbody></tbody>
     </table>
 
-    <h2>Jogos</h2>
+    <h2>Jogos da Liga</h2>
     <div id="jogos"></div>
 
     <h2>Mata-mata</h2>
     <div id="mata"></div>
-      
-    <button id="btnForcarSemis" onclick="window.forcarFinal()" style="margin-top:10px; background:#22c55e; display:none;">Finalizar Semifinais</button>
 </div>
 
-<div style="text-align: center; padding: 20px; opacity: 0.1;">
-    <span id="lock" style="cursor: pointer;">🔒</span>
+<div style="text-align: center; padding: 30px; opacity: 0.2;">
+    <span id="lock" style="cursor: pointer; font-size: 20px;">🔒</span>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, set, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getDatabase, ref, set, onValue, update, remove, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyDzkYJFDP8a37YK109nBW9yk1kAdOAT6cI",
@@ -78,36 +75,42 @@
 
     if(isAdmin) document.getElementById('admin-controls').style.display = 'block';
 
+    // Sistema de Login
     document.getElementById('lock').onclick = () => {
-        if(prompt("Senha:") === "123") {
+        if(prompt("Senha do Administrador:") === "123") {
             isAdmin = true;
             sessionStorage.setItem('isAdmin', 'true');
-            document.getElementById('admin-controls').style.display = 'block';
+            alert("Acesso liberado!");
             location.reload();
         }
     };
 
-    // --- FUNÇÕES GLOBAIS ---
-    window.adicionarTime = () => {
+    // Adicionar Time
+    document.getElementById('addTimeBtn').onclick = async () => {
         const nome = document.getElementById("novoTime").value.trim();
         if(!nome) return;
-        onValue(ref(db, 'liga/times'), (snap) => {
-            let times = snap.val() || [];
-            if(!times.includes(nome)) {
-                times.push(nome);
-                set(ref(db, 'liga/times'), times);
-            }
-        }, { onlyOnce: true });
+        const snapshot = await get(ref(db, 'liga/times'));
+        let times = snapshot.val() || [];
+        if(!times.includes(nome)) {
+            times.push(nome);
+            await set(ref(db, 'liga/times'), times);
+        }
         document.getElementById("novoTime").value = "";
     };
 
+    // Salvar Placares da Liga
     window.salvarPlacar = (id, g1, g2, t1, t2) => {
         if(!isAdmin) return;
-        update(ref(db, `liga/jogos/${id}`), { t1, t2, g1: parseInt(g1)||0, g2: parseInt(g2)||0 });
+        update(ref(db, `liga/jogos/${id}`), { 
+            t1, t2, 
+            g1: parseInt(g1) || 0, 
+            g2: parseInt(g2) || 0 
+        });
     };
 
-    window.finalizarLiga = () => {
-        if(!window.classificados || window.classificados.length < 4) return alert("Precisa de 4 times");
+    // Gerar Mata-Mata
+    document.getElementById('btnFinalizarLiga').onclick = () => {
+        if(!window.classificados || window.classificados.length < 4) return alert("Precisa de pelo menos 4 times na tabela!");
         let a = window.classificados;
         const html = `
             <div class="chave">
@@ -116,91 +119,87 @@
                     <div class="duelo">${criarDueloHTML(a[0].time, a[3].time, "semi1")}</div>
                     <div class="duelo">${criarDueloHTML(a[1].time, a[2].time, "semi2")}</div>
                 </div>
-                <div class="coluna final">
+                <div class="coluna">
                     <h3>Final</h3>
-                    <div id="finalArea"></div>
-                    <h2 id="campeao" style="text-align:center; color:#22c55e"></h2>
+                    <div class="duelo" id="finalArea">${criarDueloHTML("Vencedor Semi 1", "Vencedor Semi 2", "final")}</div>
                 </div>
             </div>`;
         set(ref(db, 'liga/mataHTML'), html);
     };
 
     function criarDueloHTML(t1, t2, id) {
-        return `
-            <p><b>Ida: ${t1} x ${t2}</b></p>
-            <div class="jogo" data-duelo="${id}">
-                <div class="time">${t1}</div>
-                <div class="placar"><input type="number" ${!isAdmin?'disabled':''} oninput="window.saveMata()"> x <input type="number" ${!isAdmin?'disabled':''} oninput="window.saveMata()"></div>
-                <div class="time">${t2}</div>
-            </div>
-            <p><b>Volta: ${t2} x ${t1}</b></p>
-            <div class="jogo" data-duelo="${id}">
-                <div class="time">${t2}</div>
-                <div class="placar"><input type="number" ${!isAdmin?'disabled':''} oninput="window.saveMata()"> x <input type="number" ${!isAdmin?'disabled':''} oninput="window.saveMata()"></div>
-                <div class="time">${t1}</div>
-            </div><div id="pen-container-${id}"></div>`;
+        return `<p style="font-size:12px; margin-bottom:5px; color:#9ca3af;">Confronto</p>
+                <div class="jogo">
+                    <div class="time">${t1}</div>
+                    <div class="placar">
+                        <input type="number" ${!isAdmin?'disabled':''}> x <input type="number" ${!isAdmin?'disabled':''}>
+                    </div>
+                    <div class="time">${t2}</div>
+                </div>`;
     }
 
-    window.saveMata = () => {
-        if(!isAdmin) return;
-        set(ref(db, 'liga/mataHTML'), document.getElementById("mata").innerHTML);
+    // Reiniciar
+    document.getElementById('btnReiniciarTudo').onclick = () => {
+        if(confirm("Deseja apagar TODOS os dados e começar do zero?")) {
+            remove(ref(db, 'liga')).then(() => location.reload());
+        }
     };
 
-    window.reiniciarTudo = () => {
-        if(confirm("Apagar tudo?")) remove(ref(db, 'liga'));
-    };
-
-    // --- SINCRONIZAÇÃO EM TEMPO REAL ---
+    // --- ATUALIZAÇÃO EM TEMPO REAL ---
     onValue(ref(db, 'liga'), (snapshot) => {
         const data = snapshot.val() || {};
         const times = data.times || [];
         const jogos = data.jogos || {};
-        const mataHTML = data.mataHTML || "";
-
-        // Atualizar Tabela
-        let tabelaRel = {};
-        times.forEach(t => tabelaRel[t] = {pts:0, v:0, e:0, d:0, gp:0, gc:0, j:0});
+        
+        // 1. Calcular e Renderizar Tabela
+        let tab = {};
+        times.forEach(t => tab[t] = {pts:0, v:0, e:0, d:0, gp:0, gc:0, j:0});
+        
         Object.values(jogos).forEach(j => {
-            if(!tabelaRel[j.t1] || !tabelaRel[j.t2]) return;
-            tabelaRel[j.t1].gp += j.g1; tabelaRel[j.t1].gc += j.g2; tabelaRel[j.t1].j++;
-            tabelaRel[j.t2].gp += j.g2; tabelaRel[j.t2].gc += j.g1; tabelaRel[j.t2].j++;
-            if(j.g1 > j.g2){ tabelaRel[j.t1].pts += 3; tabelaRel[j.t1].v++; tabelaRel[j.t2].d++; }
-            else if(j.g2 > j.g1){ tabelaRel[j.t2].pts += 3; tabelaRel[j.t2].v++; tabelaRel[j.t1].d++; }
-            else { tabelaRel[j.t1].pts++; tabelaRel[j.t2].pts++; tabelaRel[j.t1].e++; tabelaRel[j.t2].e++; }
+            if(tab[j.t1] && tab[j.t2]) {
+                tab[j.t1].gp += j.g1; tab[j.t1].gc += j.g2; tab[j.t1].j++;
+                tab[j.t2].gp += j.g2; tab[j.t2].gc += j.g1; tab[j.t2].j++;
+                if(j.g1 > j.g2){ tab[j.t1].pts += 3; tab[j.t1].v++; tab[j.t2].d++; }
+                else if(j.g2 > j.g1){ tab[j.t2].pts += 3; tab[j.t2].v++; tab[j.t1].d++; }
+                else { tab[j.t1].pts += 1; tab[j.t2].pts += 1; tab[j.t1].e++; tab[j.t2].e++; }
+            }
         });
 
-        let lista = Object.keys(tabelaRel).map(t => ({time:t, ...tabelaRel[t], sg: tabelaRel[t].gp - tabelaRel[t].gc}));
+        let lista = Object.keys(tab).map(t => ({time:t, ...tab[t], sg: tab[t].gp - tab[t].gc}));
         lista.sort((a,b) => b.pts - a.pts || b.sg - a.sg);
+        window.classificados = lista.slice(0,4);
+
         document.querySelector("#tabela tbody").innerHTML = lista.map((t,i) => `
             <tr class="${i<4?'top':''}"><td>${i+1}</td><td>${t.time}</td><td>${t.pts}</td><td>${t.j}</td><td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.gp}</td><td>${t.sg}</td></tr>
         `).join('');
-        window.classificados = lista.slice(0,4);
 
-        // Atualizar Jogos
-        let jogosDiv = document.getElementById("jogos");
-        jogosDiv.innerHTML = "";
-        if(times.length >= 2) {
-            for(let i=0; i<times.length; i++){
-                for(let j=i+1; j<times.length; j++){
-                    const t1 = times[i], t2 = times[j], id = `j_${i}_${j}`;
-                    const p = jogos[id] || {g1:'', g2:''};
-                    jogosDiv.innerHTML += `
-                        <div class="jogo">
-                            <div class="time">${t1}</div>
-                            <div class="placar">
-                                <input type="number" value="${p.g1}" ${!isAdmin?'disabled':''} oninput="window.salvarPlacar('${id}', this.value, this.nextElementSibling.nextElementSibling.value, '${t1}', '${t2}')">
-                                <span>x</span>
-                                <input type="number" value="${p.g2}" ${!isAdmin?'disabled':''} oninput="window.salvarPlacar('${id}', this.previousElementSibling.previousElementSibling.value, this.value, '${t1}', '${t2}')">
-                            </div>
-                            <div class="time">${t2}</div>
-                        </div>`;
-                }
+        // 2. Renderizar Jogos da Liga (ID fixo para não bugar)
+        let htmlJogos = "";
+        for(let i=0; i<times.length; i++) {
+            for(let j=i+1; j<times.length; j++) {
+                const t1 = times[i], t2 = times[j];
+                const id = `j_${t1.replace(/\s+/g, '_')}_${t2.replace(/\s+/g, '_')}`;
+                const p = jogos[id] || {g1:'', g2:''};
+                htmlJogos += `
+                    <div class="jogo">
+                        <div class="time">${t1}</div>
+                        <div class="placar">
+                            <input type="number" value="${p.g1}" ${!isAdmin?'disabled':''} onchange="window.salvarPlacar('${id}', this.value, this.nextElementSibling.nextElementSibling.value, '${t1}', '${t2}')">
+                            <span>x</span>
+                            <input type="number" value="${p.g2}" ${!isAdmin?'disabled':''} onchange="window.salvarPlacar('${id}', this.previousElementSibling.previousElementSibling.value, this.value, '${t1}', '${t2}')">
+                        </div>
+                        <div class="time">${t2}</div>
+                    </div>`;
             }
         }
+        document.getElementById("jogos").innerHTML = htmlJogos;
 
-        // Mata-mata
-        document.getElementById("mata").innerHTML = mataHTML;
-        if(mataHTML && isAdmin) document.getElementById("btnForcarSemis").style.display = "block";
+        // 3. Mata-mata (Mantém o que foi gerado)
+        if(data.mataHTML) {
+            document.getElementById("mata").innerHTML = data.mataHTML;
+        } else {
+            document.getElementById("mata").innerHTML = "<p style='color:#9ca3af; text-align:center;'>Aguardando fim da fase de grupos...</p>";
+        }
     });
 </script>
 </body></html>
