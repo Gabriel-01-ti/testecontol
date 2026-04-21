@@ -75,17 +75,17 @@
 
     if(isAdmin) document.getElementById('admin-controls').style.display = 'block';
 
-    // Sistema de Login
     document.getElementById('lock').onclick = () => {
         if(prompt("Senha do Administrador:") === "123") {
             isAdmin = true;
             sessionStorage.setItem('isAdmin', 'true');
-            alert("Acesso liberado!");
             location.reload();
         }
     };
 
-    // Adicionar Time
+    // Função para criar IDs seguros para o Firebase
+    const safeId = (name) => name.replace(/[^a-zA-Z0-0]/g, '_');
+
     document.getElementById('addTimeBtn').onclick = async () => {
         const nome = document.getElementById("novoTime").value.trim();
         if(!nome) return;
@@ -98,7 +98,6 @@
         document.getElementById("novoTime").value = "";
     };
 
-    // Salvar Placares da Liga
     window.salvarPlacar = (id, g1, g2, t1, t2) => {
         if(!isAdmin) return;
         update(ref(db, `liga/jogos/${id}`), { 
@@ -108,9 +107,8 @@
         });
     };
 
-    // Gerar Mata-Mata
     document.getElementById('btnFinalizarLiga').onclick = () => {
-        if(!window.classificados || window.classificados.length < 4) return alert("Precisa de pelo menos 4 times na tabela!");
+        if(!window.classificados || window.classificados.length < 4) return alert("Precisa de pelo menos 4 times!");
         let a = window.classificados;
         const html = `
             <div class="chave">
@@ -121,37 +119,30 @@
                 </div>
                 <div class="coluna">
                     <h3>Final</h3>
-                    <div class="duelo" id="finalArea">${criarDueloHTML("Vencedor Semi 1", "Vencedor Semi 2", "final")}</div>
+                    <div class="duelo" id="finalArea">${criarDueloHTML("A definir", "A definir", "final")}</div>
                 </div>
             </div>`;
         set(ref(db, 'liga/mataHTML'), html);
     };
 
     function criarDueloHTML(t1, t2, id) {
-        return `<p style="font-size:12px; margin-bottom:5px; color:#9ca3af;">Confronto</p>
+        return `<p style="font-size:10px; color:#9ca3af; margin:0;">${id.toUpperCase()}</p>
                 <div class="jogo">
                     <div class="time">${t1}</div>
-                    <div class="placar">
-                        <input type="number" ${!isAdmin?'disabled':''}> x <input type="number" ${!isAdmin?'disabled':''}>
-                    </div>
+                    <div class="placar"><input type="number" ${!isAdmin?'disabled':''}> x <input type="number" ${!isAdmin?'disabled':''}></div>
                     <div class="time">${t2}</div>
                 </div>`;
     }
 
-    // Reiniciar
     document.getElementById('btnReiniciarTudo').onclick = () => {
-        if(confirm("Deseja apagar TODOS os dados e começar do zero?")) {
-            remove(ref(db, 'liga')).then(() => location.reload());
-        }
+        if(confirm("Apagar tudo?")) remove(ref(db, 'liga')).then(() => location.reload());
     };
 
-    // --- ATUALIZAÇÃO EM TEMPO REAL ---
     onValue(ref(db, 'liga'), (snapshot) => {
         const data = snapshot.val() || {};
         const times = data.times || [];
         const jogos = data.jogos || {};
         
-        // 1. Calcular e Renderizar Tabela
         let tab = {};
         times.forEach(t => tab[t] = {pts:0, v:0, e:0, d:0, gp:0, gc:0, j:0});
         
@@ -167,18 +158,17 @@
 
         let lista = Object.keys(tab).map(t => ({time:t, ...tab[t], sg: tab[t].gp - tab[t].gc}));
         lista.sort((a,b) => b.pts - a.pts || b.sg - a.sg);
-        window.classificados = lista.slice(0,4);
+        window.classificados = lista; // Atualiza os classificados para o mata-mata
 
         document.querySelector("#tabela tbody").innerHTML = lista.map((t,i) => `
             <tr class="${i<4?'top':''}"><td>${i+1}</td><td>${t.time}</td><td>${t.pts}</td><td>${t.j}</td><td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.gp}</td><td>${t.sg}</td></tr>
         `).join('');
 
-        // 2. Renderizar Jogos da Liga (ID fixo para não bugar)
         let htmlJogos = "";
         for(let i=0; i<times.length; i++) {
             for(let j=i+1; j<times.length; j++) {
                 const t1 = times[i], t2 = times[j];
-                const id = `j_${t1.replace(/\s+/g, '_')}_${t2.replace(/\s+/g, '_')}`;
+                const id = `j_${safeId(t1)}_${safeId(t2)}`;
                 const p = jogos[id] || {g1:'', g2:''};
                 htmlJogos += `
                     <div class="jogo">
@@ -193,13 +183,7 @@
             }
         }
         document.getElementById("jogos").innerHTML = htmlJogos;
-
-        // 3. Mata-mata (Mantém o que foi gerado)
-        if(data.mataHTML) {
-            document.getElementById("mata").innerHTML = data.mataHTML;
-        } else {
-            document.getElementById("mata").innerHTML = "<p style='color:#9ca3af; text-align:center;'>Aguardando fim da fase de grupos...</p>";
-        }
+        document.getElementById("mata").innerHTML = data.mataHTML || "<p style='text-align:center; color:#444;'>Mata-mata não iniciado</p>";
     });
 </script>
 </body></html>
