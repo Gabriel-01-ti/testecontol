@@ -1,121 +1,177 @@
-<!DOCTYPE html><html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Controle Financeiro</title>  <style>
-    body { margin:0; font-family: Arial; background:#f5f6fa; }
-    header { background:#2f3640; color:white; padding:15px; text-align:center; }
-    .container { max-width:1000px; margin:auto; padding:15px; }
-    .card { background:white; padding:15px; margin-bottom:15px; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.1);} 
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Quintals League</title>
+<style>
+body { font-family: Arial; background:#0b0f2a; color:white; margin:0; }
+header { background: linear-gradient(135deg,#0f172a,#1e3a8a); text-align:center; padding:20px 10px; }
+header h1 { margin:0; font-size:26px; letter-spacing:2px; background: linear-gradient(90deg,#3b82f6,#22c55e); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+header img { width:120px; margin-top:10px; border-radius:10px; }
+.container { padding:10px; max-width: 800px; margin: auto; }
+input, button { width:100%; padding:14px; margin:6px 0; border-radius:10px; border:none; transition: 0.3s; box-sizing: border-box; }
+button { background:#2563eb; color:white; font-weight:bold; cursor:pointer; }
+button:hover { opacity: 0.8; }
+.btn-reiniciar { background: #dc2626; margin-top: 20px; }
+table { width:100%; border-collapse:collapse; margin-top:10px; }
+th, td { padding:8px; border-top:1px solid #1f2937; text-align: center; }
+th { color:#9ca3af; }
+tr { background:#111827; }
+.top { border-left:4px solid #3b82f6; }
+.jogo { display:grid; grid-template-columns: 1fr auto 1fr; align-items:center; background:#1e293b; padding:10px; margin:6px 0; border-radius:10px; gap:8px; }
+.time { text-align:center; font-size:13px; font-weight: bold; }
+.placar { display:flex; gap:5px; align-items:center; }
+.placar input { width:40px; height:35px; text-align:center; border-radius: 5px; border: none; background: white; color: black; }
+.chave { display:flex; justify-content:space-between; margin-top:20px; gap:20px; }
+.coluna { flex:1; display:flex; flex-direction:column; justify-content:center; }
+.coluna h3 { text-align:center; color:#9ca3af; }
+.duelo { background:#0f172a; padding:12px; border-radius:14px; margin-bottom:20px; border:1px solid #1e3a8a; }
+.btn-penalti { cursor:pointer; font-size:22px; margin:0 2px; }
+#admin-panel { display: none; background: #16213e; padding: 10px; border-radius: 10px; border: 1px dashed #3b82f6; margin-bottom: 20px; }
+</style></head><body>
 
-    input, select, button { width:100%; padding:10px; margin-top:10px; border-radius:8px; border:1px solid #ccc; }
-    button { background:#27ae60; color:white; border:none; font-weight:bold; cursor:pointer; }
+<header>
+    <h1>🏆 UEFA QUINTALS LEAGUE</h1>
+    <img src="Champions-League-com-novo-formato-comeca-hoje.-Confira-os-jogos.jpg">
+</header>
 
-    table { width:100%; border-collapse: collapse; margin-top:10px; }
-    th, td { padding:10px; text-align:left; border-bottom:1px solid #ddd; }
-    th { background:#eee; }
+<div class="container">
+    <div id="admin-panel">
+        <input id="novoTime" placeholder="Digite um time">
+        <button id="addTimeBtn">Adicionar Time</button>
+        <button id="btnFinalizarLiga">Finalizar Liga</button>
+        <button id="reiniciarBtn" class="btn-reiniciar">🔄 Reiniciar Campeonato</button>
+    </div>
 
-    .entrada { color:green; }
-    .saida { color:red; }
+    <table id="tabela">
+        <thead>
+            <tr><th>Pos</th><th>Time</th><th>P</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>SG</th></tr>
+        </thead>
+        <tbody></tbody>
+    </table>
 
-    .saldo { font-size:18px; font-weight:bold; margin-top:10px; }
-  </style></head>
-<body><header>Controle Financeiro (Caixa)</header><div class="container">  <div class="card">
-    <h3>Nova Movimentação</h3>
-    <input type="text" id="descricao" placeholder="Descrição">
-    <input type="number" id="valor" placeholder="Valor"><select id="tipo">
-  <option value="entrada">Entrada</option>
-  <option value="saida">Saída</option>
-</select>
+    <h2>Jogos</h2>
+    <div id="jogos"></div>
 
-<input type="file" id="arquivo">
-<button onclick="salvar()">Salvar</button>
+    <h2>Mata-mata</h2>
+    <div id="mata"></div>
 
-  </div>  <div class="card">
-    <h3>Caixa</h3>
-    <div class="saldo">Saldo Atual: R$ <span id="saldo">0</span></div><table>
-  <thead>
-    <tr>
-      <th>Data</th>
-      <th>Descrição</th>
-      <th>Tipo</th>
-      <th>Valor</th>
-      <th>Saldo após</th>
-      <th>Comprovante</th>
-    </tr>
-  </thead>
-  <tbody id="tabela"></tbody>
-</table>
+    <button id="btnForcarSemis" style="margin-top:10px; background:#22c55e; display:none;">Finalizar Semifinais</button>
+</div>
 
-  </div></div><script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script><script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script><script>
+<div style="text-align:center; padding: 20px;">
+    <small id="login-lock" style="cursor:pointer; opacity:0.2;">🔒 Acesso Restrito</small>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getDatabase, ref, set, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
 const firebaseConfig = {
-  apiKey: "SUA_API_KEY",
-  authDomain: "SEU_PROJETO.firebaseapp.com",
-  projectId: "SEU_PROJETO",
-  storageBucket: "SEU_PROJETO.appspot.com",
+    apiKey: "AIzaSyDzkYJFDP8a37YK109nBW9yk1kAdOAT6cI",
+    authDomain: "appquintals.firebaseapp.com",
+    databaseURL: "https://appquintals-default-rtdb.firebaseio.com",
+    projectId: "appquintals",
+    storageBucket: "appquintals.firebasestorage.app",
+    messagingSenderId: "400340047471",
+    appId: "1:400340047471:web:2b53d510d0411c1052df9a"
 };
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const storage = firebase.storage();
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+let isAdmin = false;
 
-async function salvar() {
-  const descricao = document.getElementById("descricao").value;
-  const valor = parseFloat(document.getElementById("valor").value);
-  const tipo = document.getElementById("tipo").value;
-  const file = document.getElementById("arquivo").files[0];
+// LOGIN PARA LIBERAR EDIÇÃO
+document.getElementById('login-lock').onclick = () => {
+    if(prompt("Senha:") === "123") {
+        isAdmin = true;
+        document.getElementById('admin-panel').style.display = 'block';
+        alert("Modo Admin Ativado!");
+        location.reload(); // Recarrega para aplicar permissões nos inputs
+    }
+};
 
-  let url = "";
+// ESCUTAR BANCO DE DADOS
+onValue(ref(db, 'liga'), (snapshot) => {
+    const data = snapshot.val() || {};
+    const times = data.times || [];
+    const placares = data.placares || {};
+    
+    atualizarTabelaDOM(times, placares);
+    gerarJogosDOM(times, placares);
+});
 
-  if (file) {
-    const ref = storage.ref("comprovantes/" + Date.now() + "-" + file.name);
-    await ref.put(file);
-    url = await ref.getDownloadURL();
-  }
+// ADICIONAR TIME
+document.getElementById('addTimeBtn').onclick = () => {
+    const nome = document.getElementById('novoTime').value.trim();
+    if(!nome) return;
+    onValue(ref(db, 'liga/times'), (snap) => {
+        let lista = snap.val() || [];
+        if(!lista.includes(nome)) {
+            lista.push(nome);
+            set(ref(db, 'liga/times'), lista);
+        }
+    }, { onlyOnce: true });
+    document.getElementById('novoTime').value = "";
+};
 
-  await db.collection("movimentacoes").add({
-    descricao,
-    valor,
-    tipo,
-    comprovante: url,
-    data: new Date()
-  });
+// SALVAR PLACAR
+window.salvarPlacar = (id, g1, g2, t1, t2) => {
+    if(!isAdmin) return;
+    update(ref(db, `liga/placares/${id}`), {
+        t1, t2, g1: parseInt(g1) || 0, g2: parseInt(g2) || 0
+    });
+};
 
-  alert("Salvo!");
+function gerarJogosDOM(times, placares){
+    let div = document.getElementById("jogos");
+    div.innerHTML = "";
+    if(times.length < 2) return;
+    
+    for(let i=0; i<times.length; i++){
+        for(let j=i+1; j<times.length; j++){
+            const t1 = times[i]; const t2 = times[j];
+            const id = `j_${i}_${j}`;
+            const p = placares[id] || { g1: '', g2: '' };
+
+            div.innerHTML += `
+                <div class="jogo">
+                    <div class="time">${t1}</div>
+                    <div class="placar">
+                        <input type="number" value="${p.g1}" ${!isAdmin?'disabled':''} 
+                            oninput="window.salvarPlacar('${id}', this.value, this.nextElementSibling.nextElementSibling.value, '${t1}', '${t2}')">
+                        <span>x</span>
+                        <input type="number" value="${p.g2}" ${!isAdmin?'disabled':''} 
+                            oninput="window.salvarPlacar('${id}', this.previousElementSibling.previousElementSibling.value, this.value, '${t1}', '${t2}')">
+                    </div>
+                    <div class="time">${t2}</div>
+                </div>`;
+        }
+    }
 }
 
-// Atualizar tabela com saldo
-db.collection("movimentacoes")
-  .orderBy("data", "asc")
-  .onSnapshot(snapshot => {
-    const tabela = document.getElementById("tabela");
-    const saldoEl = document.getElementById("saldo");
+function atualizarTabelaDOM(times, placares){
+    let tab = {};
+    times.forEach(t => tab[t] = {pts:0, v:0, e:0, d:0, gp:0, gc:0, j:0});
 
-    tabela.innerHTML = "";
-    let saldo = 0;
-
-    snapshot.forEach(doc => {
-      const d = doc.data();
-
-      if (d.tipo === "entrada") {
-        saldo += d.valor;
-      } else {
-        saldo -= d.valor;
-      }
-
-      tabela.innerHTML += `
-        <tr>
-          <td>${new Date(d.data.seconds * 1000).toLocaleDateString()}</td>
-          <td>${d.descricao}</td>
-          <td class="${d.tipo}">${d.tipo}</td>
-          <td>R$ ${d.valor}</td>
-          <td>R$ ${saldo.toFixed(2)}</td>
-          <td>${d.comprovante ? `<a href="${d.comprovante}" target="_blank">Ver</a>` : "-"}</td>
-        </tr>
-      `;
+    Object.values(placares).forEach(p => {
+        if(tab[p.t1] && tab[p.t2]) {
+            tab[p.t1].gp += p.g1; tab[p.t1].gc += p.g2; tab[p.t1].j++;
+            tab[p.t2].gp += p.g2; tab[p.t2].gc += p.g1; tab[p.t2].j++;
+            if(p.g1 > p.g2) { tab[p.t1].pts += 3; tab[p.t1].v++; tab[p.t2].d++; }
+            else if(p.g2 > p.g1) { tab[p.t2].pts += 3; tab[p.t2].v++; tab[p.t1].d++; }
+            else { tab[p.t1].pts++; tab[p.t2].pts++; tab[p.t1].e++; tab[p.t2].e++; }
+        }
     });
 
-    saldoEl.innerText = saldo.toFixed(2);
-  });
-</script></body>
-</html>
+    let lista = Object.keys(tab).map(t => ({time:t, ...tab[t], sg: tab[t].gp - tab[t].gc}));
+    lista.sort((a,b) => b.pts - a.pts || b.sg - a.sg);
+
+    const tbody = document.querySelector("#tabela tbody");
+    tbody.innerHTML = lista.map((t, i) => `
+        <tr class="${i<4?'top':''}">
+            <td>${i+1}</td><td>${t.time}</td><td>${t.pts}</td><td>${t.j}</td>
+            <td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.gp}</td><td>${t.sg}</td>
+        </tr>`).join('');
+}
+
+document.getElementById('reiniciarBtn').onclick = () => {
+    if(confirm("Reiniciar tudo?")) remove(ref(db, 'liga'));
+};
+</script></body></html>
