@@ -1,29 +1,25 @@
 <!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Quintals League</title>
 <style>
-body { font-family: Arial; background:#0b0f2a; color:white; margin:0; }
-header { background: linear-gradient(135deg,#0f172a,#1e3a8a); text-align:center; padding:20px 10px; }
-header h1 { margin:0; font-size:26px; letter-spacing:2px; background: linear-gradient(90deg,#3b82f6,#22c55e); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-header img { width:120px; margin-top:10px; border-radius:10px; }
-.container { padding:10px; max-width: 800px; margin: auto; }
-input, button { width:100%; padding:14px; margin:6px 0; border-radius:10px; border:none; transition: 0.3s; box-sizing: border-box; }
-button { background:#2563eb; color:white; font-weight:bold; cursor:pointer; }
-button:hover { opacity: 0.8; }
-.btn-reiniciar { background: #dc2626; margin-top: 20px; }
-table { width:100%; border-collapse:collapse; margin-top:10px; }
-th, td { padding:8px; border-top:1px solid #1f2937; text-align: center; }
-th { color:#9ca3af; }
-tr { background:#111827; }
-.top { border-left:4px solid #3b82f6; }
-.jogo { display:grid; grid-template-columns: 1fr auto 1fr; align-items:center; background:#1e293b; padding:10px; margin:6px 0; border-radius:10px; gap:8px; }
-.time { text-align:center; font-size:13px; font-weight: bold; }
-.placar { display:flex; gap:5px; align-items:center; }
-.placar input { width:40px; height:35px; text-align:center; border-radius: 5px; border: none; background: white; color: black; }
-.chave { display:flex; justify-content:space-between; margin-top:20px; gap:20px; }
-.coluna { flex:1; display:flex; flex-direction:column; justify-content:center; }
-.coluna h3 { text-align:center; color:#9ca3af; }
-.duelo { background:#0f172a; padding:12px; border-radius:14px; margin-bottom:20px; border:1px solid #1e3a8a; }
-.btn-penalti { cursor:pointer; font-size:22px; margin:0 2px; }
-#admin-panel { display: none; background: #16213e; padding: 10px; border-radius: 10px; border: 1px dashed #3b82f6; margin-bottom: 20px; }
+    body { font-family: Arial; background:#0b0f2a; color:white; margin:0; }
+    header { background: linear-gradient(135deg,#0f172a,#1e3a8a); text-align:center; padding:20px 10px; }
+    header h1 { margin:0; font-size:26px; letter-spacing:2px; background: linear-gradient(90deg,#3b82f6,#22c55e); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+    header img { width:120px; margin-top:10px; border-radius:10px; }
+    .container { padding:10px; max-width: 800px; margin: auto; }
+    input, button { width:100%; padding:14px; margin:6px 0; border-radius:10px; border:none; transition: 0.3s; box-sizing: border-box; }
+    button { background:#2563eb; color:white; font-weight:bold; cursor:pointer; }
+    button:hover { opacity: 0.8; }
+    .btn-reiniciar { background: #dc2626; margin-top: 20px; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    th, td { padding:8px; border-top:1px solid #1f2937; text-align: center; }
+    th { color:#9ca3af; }
+    tr { background:#111827; }
+    .top { border-left:4px solid #3b82f6; }
+    .jogo { display:grid; grid-template-columns: 1fr auto 1fr; align-items:center; background:#1e293b; padding:10px; margin:6px 0; border-radius:10px; gap:8px; }
+    .time { text-align:center; font-size:13px; font-weight: bold; }
+    .placar { display:flex; gap:5px; align-items:center; }
+    .placar input { width:40px; height:35px; text-align:center; border-radius: 5px; border: none; background: white; color: black; }
+    #admin-area { display: none; background: #16213e; padding: 15px; border-radius: 10px; border: 1px dashed #3b82f6; margin-bottom: 20px; }
+    .status-admin { text-align: center; font-size: 10px; color: #4ade80; margin-bottom: 10px; display: none; }
 </style></head><body>
 
 <header>
@@ -32,11 +28,13 @@ tr { background:#111827; }
 </header>
 
 <div class="container">
-    <div id="admin-panel">
-        <input id="novoTime" placeholder="Digite um time">
-        <button id="addTimeBtn">Adicionar Time</button>
-        <button id="btnFinalizarLiga">Finalizar Liga</button>
-        <button id="reiniciarBtn" class="btn-reiniciar">🔄 Reiniciar Campeonato</button>
+    <div id="admin-status" class="status-admin">MODO ADMINISTRADOR ATIVO</div>
+
+    <div id="admin-area">
+        <input id="novoTime" placeholder="Nome do time">
+        <button id="btnAddTime">Adicionar Time</button>
+        <button id="btnFinalizarLiga" style="background: #22c55e;">Gerar Mata-Mata</button>
+        <button id="btnReiniciar" class="btn-reiniciar">🔄 Reiniciar Tudo</button>
     </div>
 
     <table id="tabela">
@@ -49,129 +47,139 @@ tr { background:#111827; }
     <h2>Jogos</h2>
     <div id="jogos"></div>
 
-    <h2>Mata-mata</h2>
-    <div id="mata"></div>
-
-    <button id="btnForcarSemis" style="margin-top:10px; background:#22c55e; display:none;">Finalizar Semifinais</button>
-</div>
-
-<div style="text-align:center; padding: 20px;">
-    <small id="login-lock" style="cursor:pointer; opacity:0.2;">🔒 Acesso Restrito</small>
+    <div style="text-align: center; margin-top: 40px; opacity: 0.2;">
+        <span id="lock-icon" style="cursor: pointer;">🔒</span>
+    </div>
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, set, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, set, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-const firebaseConfig = {
-    apiKey: "AIzaSyDzkYJFDP8a37YK109nBW9yk1kAdOAT6cI",
-    authDomain: "appquintals.firebaseapp.com",
-    databaseURL: "https://appquintals-default-rtdb.firebaseio.com",
-    projectId: "appquintals",
-    storageBucket: "appquintals.firebasestorage.app",
-    messagingSenderId: "400340047471",
-    appId: "1:400340047471:web:2b53d510d0411c1052df9a"
-};
+    const firebaseConfig = {
+        apiKey: "AIzaSyDzkYJFDP8a37YK109nBW9yk1kAdOAT6cI",
+        authDomain: "appquintals.firebaseapp.com",
+        databaseURL: "https://appquintals-default-rtdb.firebaseio.com",
+        projectId: "appquintals",
+        storageBucket: "appquintals.firebasestorage.app",
+        messagingSenderId: "400340047471",
+        appId: "1:400340047471:web:2b53d510d0411c1052df9a"
+    };
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-let isAdmin = false;
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-// LOGIN PARA LIBERAR EDIÇÃO
-document.getElementById('login-lock').onclick = () => {
-    if(prompt("Senha:") === "123") {
-        isAdmin = true;
-        document.getElementById('admin-panel').style.display = 'block';
-        alert("Modo Admin Ativado!");
-        location.reload(); // Recarrega para aplicar permissões nos inputs
-    }
-};
+    // --- LOGICA DE LOGIN ---
+    let isAdmin = sessionStorage.getItem('admin_ligado') === 'true';
 
-// ESCUTAR BANCO DE DADOS
-onValue(ref(db, 'liga'), (snapshot) => {
-    const data = snapshot.val() || {};
-    const times = data.times || [];
-    const placares = data.placares || {};
-    
-    atualizarTabelaDOM(times, placares);
-    gerarJogosDOM(times, placares);
-});
-
-// ADICIONAR TIME
-document.getElementById('addTimeBtn').onclick = () => {
-    const nome = document.getElementById('novoTime').value.trim();
-    if(!nome) return;
-    onValue(ref(db, 'liga/times'), (snap) => {
-        let lista = snap.val() || [];
-        if(!lista.includes(nome)) {
-            lista.push(nome);
-            set(ref(db, 'liga/times'), lista);
-        }
-    }, { onlyOnce: true });
-    document.getElementById('novoTime').value = "";
-};
-
-// SALVAR PLACAR
-window.salvarPlacar = (id, g1, g2, t1, t2) => {
-    if(!isAdmin) return;
-    update(ref(db, `liga/placares/${id}`), {
-        t1, t2, g1: parseInt(g1) || 0, g2: parseInt(g2) || 0
-    });
-};
-
-function gerarJogosDOM(times, placares){
-    let div = document.getElementById("jogos");
-    div.innerHTML = "";
-    if(times.length < 2) return;
-    
-    for(let i=0; i<times.length; i++){
-        for(let j=i+1; j<times.length; j++){
-            const t1 = times[i]; const t2 = times[j];
-            const id = `j_${i}_${j}`;
-            const p = placares[id] || { g1: '', g2: '' };
-
-            div.innerHTML += `
-                <div class="jogo">
-                    <div class="time">${t1}</div>
-                    <div class="placar">
-                        <input type="number" value="${p.g1}" ${!isAdmin?'disabled':''} 
-                            oninput="window.salvarPlacar('${id}', this.value, this.nextElementSibling.nextElementSibling.value, '${t1}', '${t2}')">
-                        <span>x</span>
-                        <input type="number" value="${p.g2}" ${!isAdmin?'disabled':''} 
-                            oninput="window.salvarPlacar('${id}', this.previousElementSibling.previousElementSibling.value, this.value, '${t1}', '${t2}')">
-                    </div>
-                    <div class="time">${t2}</div>
-                </div>`;
+    function verificarAdmin() {
+        if (isAdmin) {
+            document.getElementById('admin-area').style.display = 'block';
+            document.getElementById('admin-status').style.display = 'block';
         }
     }
-}
 
-function atualizarTabelaDOM(times, placares){
-    let tab = {};
-    times.forEach(t => tab[t] = {pts:0, v:0, e:0, d:0, gp:0, gc:0, j:0});
-
-    Object.values(placares).forEach(p => {
-        if(tab[p.t1] && tab[p.t2]) {
-            tab[p.t1].gp += p.g1; tab[p.t1].gc += p.g2; tab[p.t1].j++;
-            tab[p.t2].gp += p.g2; tab[p.t2].gc += p.g1; tab[p.t2].j++;
-            if(p.g1 > p.g2) { tab[p.t1].pts += 3; tab[p.t1].v++; tab[p.t2].d++; }
-            else if(p.g2 > p.g1) { tab[p.t2].pts += 3; tab[p.t2].v++; tab[p.t1].d++; }
-            else { tab[p.t1].pts++; tab[p.t2].pts++; tab[p.t1].e++; tab[p.t2].e++; }
+    document.getElementById('lock-icon').onclick = () => {
+        const senha = prompt("Digite a senha de administrador:");
+        if (senha === "quintal2024") { // <--- MUDE SUA SENHA AQUI
+            isAdmin = true;
+            sessionStorage.setItem('admin_ligado', 'true');
+            alert("Bem-vindo, Admin!");
+            location.reload();
+        } else {
+            alert("Senha incorreta!");
         }
+    };
+
+    verificarAdmin();
+
+    // --- FUNÇÕES DO BANCO ---
+    window.salvarGols = (id, g1, g2, t1, t2) => {
+        if (!isAdmin) return;
+        update(ref(db, `liga/placares/${id}`), {
+            t1, t2, g1: parseInt(g1) || 0, g2: parseInt(g2) || 0
+        });
+    };
+
+    document.getElementById('btnAddTime').onclick = () => {
+        const nome = document.getElementById('novoTime').value.trim();
+        if (!nome) return;
+        onValue(ref(db, 'liga/times'), (snap) => {
+            let lista = snap.val() || [];
+            if (!lista.includes(nome)) {
+                lista.push(nome);
+                set(ref(db, 'liga/times'), lista);
+            }
+        }, { onlyOnce: true });
+        document.getElementById('novoTime').value = "";
+    };
+
+    document.getElementById('btnReiniciar').onclick = () => {
+        if (confirm("Isso apagará todos os dados do campeonato. Continuar?")) {
+            remove(ref(db, 'liga'));
+        }
+    };
+
+    // --- ATUALIZAÇÃO EM TEMPO REAL ---
+    onValue(ref(db, 'liga'), (snapshot) => {
+        const data = snapshot.val() || {};
+        const times = data.times || [];
+        const placares = data.placares || {};
+        
+        atualizarTabela(times, placares);
+        renderizarJogos(times, placares);
     });
 
-    let lista = Object.keys(tab).map(t => ({time:t, ...tab[t], sg: tab[t].gp - tab[t].gc}));
-    lista.sort((a,b) => b.pts - a.pts || b.sg - a.sg);
+    function atualizarTabela(times, placares) {
+        let tab = {};
+        times.forEach(t => tab[t] = {pts:0, v:0, e:0, d:0, gp:0, gc:0, j:0});
 
-    const tbody = document.querySelector("#tabela tbody");
-    tbody.innerHTML = lista.map((t, i) => `
-        <tr class="${i<4?'top':''}">
-            <td>${i+1}</td><td>${t.time}</td><td>${t.pts}</td><td>${t.j}</td>
-            <td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.gp}</td><td>${t.sg}</td>
-        </tr>`).join('');
-}
+        Object.values(placares).forEach(p => {
+            if (tab[p.t1] && tab[p.t2]) {
+                tab[p.t1].gp += p.g1; tab[p.t1].gc += p.g2; tab[p.t1].j++;
+                tab[p.t2].gp += p.g2; tab[p.t2].gc += p.g1; tab[p.t2].j++;
+                if (p.g1 > p.g2) { tab[p.t1].pts += 3; tab[p.t1].v++; tab[p.t2].d++; }
+                else if (p.g2 > p.g1) { tab[p.t2].pts += 3; tab[p.t2].v++; tab[p.t1].d++; }
+                else { tab[p.t1].pts++; tab[p.t2].pts++; tab[p.t1].e++; tab[p.t2].e++; }
+            }
+        });
 
-document.getElementById('reiniciarBtn').onclick = () => {
-    if(confirm("Reiniciar tudo?")) remove(ref(db, 'liga'));
-};
-</script></body></html>
+        let lista = Object.keys(tab).map(t => ({time:t, ...tab[t], sg: tab[t].gp - tab[t].gc}));
+        lista.sort((a,b) => b.pts - a.pts || b.sg - a.sg);
+
+        const tbody = document.querySelector("#tabela tbody");
+        tbody.innerHTML = lista.map((t, i) => `
+            <tr class="${i<4?'top':''}">
+                <td>${i+1}</td><td>${t.time}</td><td>${t.pts}</td><td>${t.j}</td>
+                <td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.gp}</td><td>${t.sg}</td>
+            </tr>`).join('');
+    }
+
+    function renderizarJogos(times, placares) {
+        let div = document.getElementById("jogos");
+        div.innerHTML = "";
+        if (times.length < 2) return;
+        
+        for (let i = 0; i < times.length; i++) {
+            for (let j = i + 1; j < times.length; j++) {
+                const t1 = times[i]; const t2 = times[j];
+                const id = `j_${i}_${j}`;
+                const p = placares[id] || { g1: '', g2: '' };
+
+                div.innerHTML += `
+                    <div class="jogo">
+                        <div class="time">${t1}</div>
+                        <div class="placar">
+                            <input type="number" value="${p.g1}" ${!isAdmin?'disabled':''} 
+                                oninput="window.salvarGols('${id}', this.value, this.nextElementSibling.nextElementSibling.value, '${t1}', '${t2}')">
+                            <span>x</span>
+                            <input type="number" value="${p.g2}" ${!isAdmin?'disabled':''} 
+                                oninput="window.salvarGols('${id}', this.previousElementSibling.previousElementSibling.value, this.value, '${t1}', '${t2}')">
+                        </div>
+                        <div class="time">${t2}</div>
+                    </div>`;
+            }
+        }
+    }
+</script>
+</body></html>
