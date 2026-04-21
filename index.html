@@ -1,5 +1,4 @@
-<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Quintals League</title>
-<style>
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Quintals League</title><style>
     body { font-family: Arial; background:#0b0f2a; color:white; margin:0; }
     header { background: linear-gradient(135deg,#0f172a,#1e3a8a); text-align:center; padding:20px 10px; }
     header h1 { margin:0; font-size:26px; letter-spacing:2px; background: linear-gradient(90deg,#3b82f6,#22c55e); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
@@ -18,8 +17,12 @@
     .time { text-align:center; font-size:13px; font-weight: bold; }
     .placar { display:flex; gap:5px; align-items:center; }
     .placar input { width:40px; height:35px; text-align:center; border-radius: 5px; border: none; background: white; color: black; }
-    #admin-area { display: none; background: #16213e; padding: 15px; border-radius: 10px; border: 1px dashed #3b82f6; margin-bottom: 20px; }
-    .status-admin { text-align: center; font-size: 10px; color: #4ade80; margin-bottom: 10px; display: none; }
+    .chave { display:flex; justify-content:space-between; margin-top:20px; gap:20px; }
+    .coluna { flex:1; display:flex; flex-direction:column; justify-content:center; }
+    .coluna h3 { text-align:center; color:#9ca3af; }
+    .duelo { background:#0f172a; padding:12px; border-radius:14px; margin-bottom:20px; border:1px solid #1e3a8a; }
+    .btn-penalti { cursor:pointer; font-size:22px; margin:0 2px; }
+    #admin-controls { display: none; background: #16213e; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px dashed #3b82f6; }
 </style></head><body>
 
 <header>
@@ -28,13 +31,11 @@
 </header>
 
 <div class="container">
-    <div id="admin-status" class="status-admin">MODO ADMINISTRADOR ATIVO</div>
-
-    <div id="admin-area">
-        <input id="novoTime" placeholder="Nome do time">
-        <button id="btnAddTime">Adicionar Time</button>
-        <button id="btnFinalizarLiga" style="background: #22c55e;">Gerar Mata-Mata</button>
-        <button id="btnReiniciar" class="btn-reiniciar">🔄 Reiniciar Tudo</button>
+    <div id="admin-controls">
+        <input id="novoTime" placeholder="Digite um time">
+        <button onclick="window.adicionarTime()">Adicionar Time</button>
+        <button id="btnFinalizarLiga" onclick="window.finalizarLiga()">Finalizar Liga</button>
+        <button class="btn-reiniciar" onclick="window.reiniciarTudo()">🔄 Reiniciar Campeonato</button>
     </div>
 
     <table id="tabela">
@@ -47,9 +48,14 @@
     <h2>Jogos</h2>
     <div id="jogos"></div>
 
-    <div style="text-align: center; margin-top: 40px; opacity: 0.2;">
-        <span id="lock-icon" style="cursor: pointer;">🔒</span>
-    </div>
+    <h2>Mata-mata</h2>
+    <div id="mata"></div>
+      
+    <button id="btnForcarSemis" onclick="window.forcarFinal()" style="margin-top:10px; background:#22c55e; display:none;">Finalizar Semifinais</button>
+</div>
+
+<div style="text-align: center; padding: 20px; opacity: 0.1;">
+    <span id="lock" style="cursor: pointer;">🔒</span>
 </div>
 
 <script type="module">
@@ -68,118 +74,133 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+    let isAdmin = sessionStorage.getItem('isAdmin') === 'true';
 
-    // --- LOGICA DE LOGIN ---
-    let isAdmin = sessionStorage.getItem('admin_ligado') === 'true';
+    if(isAdmin) document.getElementById('admin-controls').style.display = 'block';
 
-    function verificarAdmin() {
-        if (isAdmin) {
-            document.getElementById('admin-area').style.display = 'block';
-            document.getElementById('admin-status').style.display = 'block';
-        }
-    }
-
-    document.getElementById('lock-icon').onclick = () => {
-        const senha = prompt("Digite a senha de administrador:");
-        if (senha === "quintal2024") { // <--- MUDE SUA SENHA AQUI
+    document.getElementById('lock').onclick = () => {
+        if(prompt("Senha:") === "123") {
             isAdmin = true;
-            sessionStorage.setItem('admin_ligado', 'true');
-            alert("Bem-vindo, Admin!");
+            sessionStorage.setItem('isAdmin', 'true');
+            document.getElementById('admin-controls').style.display = 'block';
             location.reload();
-        } else {
-            alert("Senha incorreta!");
         }
     };
 
-    verificarAdmin();
-
-    // --- FUNÇÕES DO BANCO ---
-    window.salvarGols = (id, g1, g2, t1, t2) => {
-        if (!isAdmin) return;
-        update(ref(db, `liga/placares/${id}`), {
-            t1, t2, g1: parseInt(g1) || 0, g2: parseInt(g2) || 0
-        });
-    };
-
-    document.getElementById('btnAddTime').onclick = () => {
-        const nome = document.getElementById('novoTime').value.trim();
-        if (!nome) return;
+    // --- FUNÇÕES GLOBAIS ---
+    window.adicionarTime = () => {
+        const nome = document.getElementById("novoTime").value.trim();
+        if(!nome) return;
         onValue(ref(db, 'liga/times'), (snap) => {
-            let lista = snap.val() || [];
-            if (!lista.includes(nome)) {
-                lista.push(nome);
-                set(ref(db, 'liga/times'), lista);
+            let times = snap.val() || [];
+            if(!times.includes(nome)) {
+                times.push(nome);
+                set(ref(db, 'liga/times'), times);
             }
         }, { onlyOnce: true });
-        document.getElementById('novoTime').value = "";
+        document.getElementById("novoTime").value = "";
     };
 
-    document.getElementById('btnReiniciar').onclick = () => {
-        if (confirm("Isso apagará todos os dados do campeonato. Continuar?")) {
-            remove(ref(db, 'liga'));
-        }
+    window.salvarPlacar = (id, g1, g2, t1, t2) => {
+        if(!isAdmin) return;
+        update(ref(db, `liga/jogos/${id}`), { t1, t2, g1: parseInt(g1)||0, g2: parseInt(g2)||0 });
     };
 
-    // --- ATUALIZAÇÃO EM TEMPO REAL ---
+    window.finalizarLiga = () => {
+        if(!window.classificados || window.classificados.length < 4) return alert("Precisa de 4 times");
+        let a = window.classificados;
+        const html = `
+            <div class="chave">
+                <div class="coluna">
+                    <h3>Semifinais</h3>
+                    <div class="duelo">${criarDueloHTML(a[0].time, a[3].time, "semi1")}</div>
+                    <div class="duelo">${criarDueloHTML(a[1].time, a[2].time, "semi2")}</div>
+                </div>
+                <div class="coluna final">
+                    <h3>Final</h3>
+                    <div id="finalArea"></div>
+                    <h2 id="campeao" style="text-align:center; color:#22c55e"></h2>
+                </div>
+            </div>`;
+        set(ref(db, 'liga/mataHTML'), html);
+    };
+
+    function criarDueloHTML(t1, t2, id) {
+        return `
+            <p><b>Ida: ${t1} x ${t2}</b></p>
+            <div class="jogo" data-duelo="${id}">
+                <div class="time">${t1}</div>
+                <div class="placar"><input type="number" ${!isAdmin?'disabled':''} oninput="window.saveMata()"> x <input type="number" ${!isAdmin?'disabled':''} oninput="window.saveMata()"></div>
+                <div class="time">${t2}</div>
+            </div>
+            <p><b>Volta: ${t2} x ${t1}</b></p>
+            <div class="jogo" data-duelo="${id}">
+                <div class="time">${t2}</div>
+                <div class="placar"><input type="number" ${!isAdmin?'disabled':''} oninput="window.saveMata()"> x <input type="number" ${!isAdmin?'disabled':''} oninput="window.saveMata()"></div>
+                <div class="time">${t1}</div>
+            </div><div id="pen-container-${id}"></div>`;
+    }
+
+    window.saveMata = () => {
+        if(!isAdmin) return;
+        set(ref(db, 'liga/mataHTML'), document.getElementById("mata").innerHTML);
+    };
+
+    window.reiniciarTudo = () => {
+        if(confirm("Apagar tudo?")) remove(ref(db, 'liga'));
+    };
+
+    // --- SINCRONIZAÇÃO EM TEMPO REAL ---
     onValue(ref(db, 'liga'), (snapshot) => {
         const data = snapshot.val() || {};
         const times = data.times || [];
-        const placares = data.placares || {};
-        
-        atualizarTabela(times, placares);
-        renderizarJogos(times, placares);
-    });
+        const jogos = data.jogos || {};
+        const mataHTML = data.mataHTML || "";
 
-    function atualizarTabela(times, placares) {
-        let tab = {};
-        times.forEach(t => tab[t] = {pts:0, v:0, e:0, d:0, gp:0, gc:0, j:0});
-
-        Object.values(placares).forEach(p => {
-            if (tab[p.t1] && tab[p.t2]) {
-                tab[p.t1].gp += p.g1; tab[p.t1].gc += p.g2; tab[p.t1].j++;
-                tab[p.t2].gp += p.g2; tab[p.t2].gc += p.g1; tab[p.t2].j++;
-                if (p.g1 > p.g2) { tab[p.t1].pts += 3; tab[p.t1].v++; tab[p.t2].d++; }
-                else if (p.g2 > p.g1) { tab[p.t2].pts += 3; tab[p.t2].v++; tab[p.t1].d++; }
-                else { tab[p.t1].pts++; tab[p.t2].pts++; tab[p.t1].e++; tab[p.t2].e++; }
-            }
+        // Atualizar Tabela
+        let tabelaRel = {};
+        times.forEach(t => tabelaRel[t] = {pts:0, v:0, e:0, d:0, gp:0, gc:0, j:0});
+        Object.values(jogos).forEach(j => {
+            if(!tabelaRel[j.t1] || !tabelaRel[j.t2]) return;
+            tabelaRel[j.t1].gp += j.g1; tabelaRel[j.t1].gc += j.g2; tabelaRel[j.t1].j++;
+            tabelaRel[j.t2].gp += j.g2; tabelaRel[j.t2].gc += j.g1; tabelaRel[j.t2].j++;
+            if(j.g1 > j.g2){ tabelaRel[j.t1].pts += 3; tabelaRel[j.t1].v++; tabelaRel[j.t2].d++; }
+            else if(j.g2 > j.g1){ tabelaRel[j.t2].pts += 3; tabelaRel[j.t2].v++; tabelaRel[j.t1].d++; }
+            else { tabelaRel[j.t1].pts++; tabelaRel[j.t2].pts++; tabelaRel[j.t1].e++; tabelaRel[j.t2].e++; }
         });
 
-        let lista = Object.keys(tab).map(t => ({time:t, ...tab[t], sg: tab[t].gp - tab[t].gc}));
+        let lista = Object.keys(tabelaRel).map(t => ({time:t, ...tabelaRel[t], sg: tabelaRel[t].gp - tabelaRel[t].gc}));
         lista.sort((a,b) => b.pts - a.pts || b.sg - a.sg);
+        document.querySelector("#tabela tbody").innerHTML = lista.map((t,i) => `
+            <tr class="${i<4?'top':''}"><td>${i+1}</td><td>${t.time}</td><td>${t.pts}</td><td>${t.j}</td><td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.gp}</td><td>${t.sg}</td></tr>
+        `).join('');
+        window.classificados = lista.slice(0,4);
 
-        const tbody = document.querySelector("#tabela tbody");
-        tbody.innerHTML = lista.map((t, i) => `
-            <tr class="${i<4?'top':''}">
-                <td>${i+1}</td><td>${t.time}</td><td>${t.pts}</td><td>${t.j}</td>
-                <td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.gp}</td><td>${t.sg}</td>
-            </tr>`).join('');
-    }
-
-    function renderizarJogos(times, placares) {
-        let div = document.getElementById("jogos");
-        div.innerHTML = "";
-        if (times.length < 2) return;
-        
-        for (let i = 0; i < times.length; i++) {
-            for (let j = i + 1; j < times.length; j++) {
-                const t1 = times[i]; const t2 = times[j];
-                const id = `j_${i}_${j}`;
-                const p = placares[id] || { g1: '', g2: '' };
-
-                div.innerHTML += `
-                    <div class="jogo">
-                        <div class="time">${t1}</div>
-                        <div class="placar">
-                            <input type="number" value="${p.g1}" ${!isAdmin?'disabled':''} 
-                                oninput="window.salvarGols('${id}', this.value, this.nextElementSibling.nextElementSibling.value, '${t1}', '${t2}')">
-                            <span>x</span>
-                            <input type="number" value="${p.g2}" ${!isAdmin?'disabled':''} 
-                                oninput="window.salvarGols('${id}', this.previousElementSibling.previousElementSibling.value, this.value, '${t1}', '${t2}')">
-                        </div>
-                        <div class="time">${t2}</div>
-                    </div>`;
+        // Atualizar Jogos
+        let jogosDiv = document.getElementById("jogos");
+        jogosDiv.innerHTML = "";
+        if(times.length >= 2) {
+            for(let i=0; i<times.length; i++){
+                for(let j=i+1; j<times.length; j++){
+                    const t1 = times[i], t2 = times[j], id = `j_${i}_${j}`;
+                    const p = jogos[id] || {g1:'', g2:''};
+                    jogosDiv.innerHTML += `
+                        <div class="jogo">
+                            <div class="time">${t1}</div>
+                            <div class="placar">
+                                <input type="number" value="${p.g1}" ${!isAdmin?'disabled':''} oninput="window.salvarPlacar('${id}', this.value, this.nextElementSibling.nextElementSibling.value, '${t1}', '${t2}')">
+                                <span>x</span>
+                                <input type="number" value="${p.g2}" ${!isAdmin?'disabled':''} oninput="window.salvarPlacar('${id}', this.previousElementSibling.previousElementSibling.value, this.value, '${t1}', '${t2}')">
+                            </div>
+                            <div class="time">${t2}</div>
+                        </div>`;
+                }
             }
         }
-    }
+
+        // Mata-mata
+        document.getElementById("mata").innerHTML = mataHTML;
+        if(mataHTML && isAdmin) document.getElementById("btnForcarSemis").style.display = "block";
+    });
 </script>
 </body></html>
