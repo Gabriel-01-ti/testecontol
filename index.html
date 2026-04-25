@@ -20,6 +20,17 @@
     .placar { display:flex; gap:5px; align-items:center; }
     .placar input { width:40px; height:35px; text-align:center; border-radius: 5px; border: none; background: white; color: black; font-weight: bold; margin:0; }
     .placar input:disabled { background: #64748b; color: #fff; }
+     @keyframes campeaoGlow {
+  0% { transform: scale(1); text-shadow: 0 0 5px #22c55e; }
+  50% { transform: scale(1.1); text-shadow: 0 0 20px #22c55e; }
+  100% { transform: scale(1); text-shadow: 0 0 5px #22c55e; }
+}
+.campeao-animado {
+  animation: campeaoGlow 1s infinite;
+  color: #22c55e;
+  font-weight: bold;
+}
+
 </style></head><body>
 
 <header>
@@ -32,6 +43,7 @@
         <input id="novoTime" placeholder="Nome do Time">
         <button id="addBtn">Adicionar Time</button>
         <button id="btnMata" style="background:#059669">Gerar Mata-Mata</button>
+        <button id="btnFinalizarSemis" style="background:#22c55e;">Finalizar Semifinais</button>
         <button id="btnReset" class="btn-reiniciar">Reiniciar Tudo</button>
     </div>
 
@@ -274,5 +286,236 @@ document.getElementById('btnMata').onclick = () => {
 
     set(ref(db, 'liga/mataHTML'), html);
 };
-                                        </script>
+            // =======================
+// 🔥 GERAR SEMIFINAIS
+// =======================
+document.getElementById('btnMata').onclick = async () => {
+  if(!window.classificados || window.classificados.length < 4){
+    return alert("Precisa de 4 times");
+  }
+
+  const c = window.classificados;
+
+  await set(ref(db, 'liga/semis'), {
+    semi1: { t1:c[0].time, t2:c[3].time, jogos:{ida:{},volta:{}}, penaltis:[], vencedor:null },
+    semi2: { t1:c[1].time, t2:c[2].time, jogos:{ida:{},volta:{}}, penaltis:[], vencedor:null }
+  });
+
+  alert("Semifinais criadas!");
+};
+
+
+// =======================
+// ⚽ SALVAR GOLS SEMI
+// =======================
+window.salvarSemi = (id,tipo,g1,g2)=>{
+  update(ref(db,`liga/semis/${id}/jogos/${tipo}`),{
+    g1: parseInt(g1)||0,
+    g2: parseInt(g2)||0
+  });
+};
+
+
+// =======================
+// 🥅 PÊNALTIS SEMI (MORTE SÚBITA)
+// =======================
+window.addPenalti = async (id, t1ok, t2ok)=>{
+  const snap = await get(ref(db,`liga/semis/${id}`));
+  let data = snap.val();
+
+  let lista = data.penaltis || [];
+  lista.push({t1:t1ok, t2:t2ok});
+
+  let gols1 = lista.filter(p=>p.t1).length;
+  let gols2 = lista.filter(p=>p.t2).length;
+
+  let vencedor = null;
+
+  // após 3 cobranças → qualquer diferença decide
+  if(lista.length >= 3){
+    if(gols1 !== gols2){
+      vencedor = gols1 > gols2 ? "t1" : "t2";
+    }
+  }
+
+  await update(ref(db,`liga/semis/${id}`),{
+    penaltis: lista,
+    vencedor
+  });
+};
+
+
+// =======================
+// 🎯 RENDER SEMIS
+// =======================
+onValue(ref(db,'liga/semis'),snap=>{
+  const semis = snap.val();
+  if(!semis) return;
+
+  let html="";
+
+  Object.entries(semis).forEach(([id,s])=>{
+    let ida=s.jogos?.ida||{};
+    let volta=s.jogos?.volta||{};
+
+    let total1=(ida.g1||0)+(volta.g2||0);
+    let total2=(ida.g2||0)+(volta.g1||0);
+
+    let vencedor=null;
+
+    if(total1>total2) vencedor=s.t1;
+    else if(total2>total1) vencedor=s.t2;
+    else if(s.vencedor) vencedor = s.vencedor==="t1"?s.t1:s.t2;
+
+    html+=`
+    <div style="background:#16213e; padding:10px; border-radius:10px; margin:10px 0;">
+      <h4>${s.t1} x ${s.t2}</h4>
+
+      <p>Ida</p>
+      <input type="number" value="${ida.g1||''}" onchange="salvarSemi('${id}','ida',this.value,this.nextElementSibling.value)">
+      x
+      <input type="number" value="${ida.g2||''}" onchange="salvarSemi('${id}','ida',this.previousElementSibling.value,this.value)">
+
+      <p>Volta</p>
+      <input type="number" value="${volta.g1||''}" onchange="salvarSemi('${id}','volta',this.value,this.nextElementSibling.value)">
+      x
+      <input type="number" value="${volta.g2||''}" onchange="salvarSemi('${id}','volta',this.previousElementSibling.value,this.value)">
+
+      <p><b>Agregado: ${total1} x ${total2}</b></p>
+
+      ${
+        total1===total2 && !s.vencedor
+        ? `
+        <p>Pênaltis</p>
+        <button onclick="addPenalti('${id}',true,false)">${s.t1} ⚽</button>
+        <button onclick="addPenalti('${id}',false,true)">${s.t2} ⚽</button>
+        <button onclick="addPenalti('${id}',false,false)">Ambos erram</button>
+        `
+        : ""
+      }
+
+      ${vencedor?`<h3>Vencedor: ${vencedor}</h3>`:""}
+    </div>
+    `;
+  });
+
+  document.getElementById("mata").innerHTML=html;
+});
+
+
+// =======================
+// 🔒 FINALIZAR SEMIS
+// =======================
+document.getElementById('btnFinalizarSemis').onclick = async ()=>{
+  const semis = (await get(ref(db,'liga/semis'))).val();
+
+  if(!semis?.semi1?.vencedor || !semis?.semi2?.vencedor){
+    return alert("Finalize as semis!");
+  }
+
+  const t1 = semis.semi1.vencedor==="t1"?semis.semi1.t1:semis.semi1.t2;
+  const t2 = semis.semi2.vencedor==="t1"?semis.semi2.t1:semis.semi2.t2;
+
+  await set(ref(db,'liga/final'),{
+    t1,t2,
+    g1:null,g2:null,
+    penaltis:[],
+    campeao:null
+  });
+
+  alert("Final criada!");
+};
+
+
+// =======================
+// 🏆 FINAL (JOGO ÚNICO)
+// =======================
+window.salvarFinal=(g1,g2)=>{
+  update(ref(db,'liga/final'),{
+    g1:parseInt(g1)||0,
+    g2:parseInt(g2)||0
+  });
+};
+
+
+// =======================
+// 🥅 PÊNALTIS FINAL
+// =======================
+window.addPenFinal=async (t1ok,t2ok)=>{
+  const snap=await get(ref(db,'liga/final'));
+  let f=snap.val();
+
+  let lista=f.penaltis||[];
+  lista.push({t1:t1ok,t2:t2ok});
+
+  let g1=lista.filter(p=>p.t1).length;
+  let g2=lista.filter(p=>p.t2).length;
+
+  let campeao=null;
+
+  if(lista.length>=3 && g1!==g2){
+    campeao=g1>g2?"t1":"t2";
+  }
+
+  await update(ref(db,'liga/final'),{
+    penaltis:lista,
+    campeao
+  });
+};
+
+
+// =======================
+// 🎉 RENDER FINAL
+// =======================
+onValue(ref(db,'liga/final'),snap=>{
+  const f=snap.val();
+  if(!f) return;
+
+  let campeao=null;
+
+  if(f.g1>f.g2) campeao=f.t1;
+  else if(f.g2>f.g1) campeao=f.t2;
+  else if(f.campeao) campeao = f.campeao==="t1"?f.t1:f.t2;
+
+  let html=`
+  <div style="background:#0f172a; padding:15px; border-radius:10px; margin-top:20px;">
+    <h2 style="text-align:center;">FINAL</h2>
+
+    <div class="jogo">
+      <div class="time">${f.t1}</div>
+      <div class="placar">
+        <input type="number" value="${f.g1||''}" onchange="salvarFinal(this.value,this.nextElementSibling.nextElementSibling.value)">
+        <span>x</span>
+        <input type="number" value="${f.g2||''}" onchange="salvarFinal(this.previousElementSibling.previousElementSibling.value,this.value)">
+      </div>
+      <div class="time">${f.t2}</div>
+    </div>
+  `;
+
+  if(f.g1===f.g2 && f.g1!=null && !f.campeao){
+    html+=`
+    <p style="text-align:center;">Pênaltis</p>
+    <div style="text-align:center;">
+      <button onclick="addPenFinal(true,false)">${f.t1} ⚽</button>
+      <button onclick="addPenFinal(false,true)">${f.t2} ⚽</button>
+      <button onclick="addPenFinal(false,false)">Ambos erram</button>
+    </div>
+    `;
+  }
+
+  if(campeao){
+    html+=`
+    <div style="text-align:center; margin-top:20px;">
+      <h1 class="campeao-animado">🏆 ${campeao}</h1>
+      <p style="opacity:0.7;">CAMPEÃO DA QUINTALS LEAGUE</p>
+    </div>
+    `;
+  }
+
+  html+=`</div>`;
+
+  document.getElementById("mata").innerHTML += html;
+});
+            
+</script>
 </body></html>
