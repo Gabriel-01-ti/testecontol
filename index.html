@@ -392,6 +392,20 @@ onValue(ref(db,'liga/final'),snap=>{
 
     document.getElementById("mata").innerHTML += html;
 });
+        // ================= RESET TOTAL =================
+document.getElementById('btnReset').onclick = async () => {
+    if(confirm("Apagar tudo mesmo?")){
+
+        await set(ref(db, 'liga'), {
+            times: [],
+            jogos: {},
+            semis: null,
+            final: null
+        });
+
+        location.reload();
+    }
+};
     
     </script>
 </body></html>
