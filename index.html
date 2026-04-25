@@ -54,120 +54,191 @@
 </div>
 
 <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, set, onValue, update, remove, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getDatabase, ref, set, onValue, update, remove, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-    const firebaseConfig = {
-        apiKey: "AIzaSyDzkYJFDP8a37YK109nBW9yk1kAdOAT6cI",
-        authDomain: "appquintals.firebaseapp.com",
-        databaseURL: "https://appquintals-default-rtdb.firebaseio.com",
-        projectId: "appquintals",
-        storageBucket: "appquintals.firebasestorage.app",
-        messagingSenderId: "400340047471",
-        appId: "1:400340047471:web:2b53d510d0411c1052df9a"
-    };
+const firebaseConfig = {
+    apiKey: "SUA_KEY",
+    authDomain: "SEU_DOMINIO",
+    databaseURL: "SUA_URL",
+    projectId: "SEU_ID"
+};
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-    let isAdmin = sessionStorage.getItem('isAdmin') === 'true';
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-    if(isAdmin) document.getElementById('admin-controls').style.display = 'block';
-
-    document.getElementById('lock').onclick = () => {
-        if(prompt("Senha:") === "123") {
-            sessionStorage.setItem('isAdmin', 'true');
-            location.reload();
-        }
-    };
-
-    const fixId = (s) => s.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
-
-    // ADICIONAR TIME
-    document.getElementById('addBtn').onclick = async () => {
-        const nome = document.getElementById("novoTime").value.trim();
-        if(!nome) return;
-        const snap = await get(ref(db, 'liga/times'));
-        let lista = snap.val() || [];
-        if(!lista.includes(nome)) {
-            lista.push(nome);
-            await set(ref(db, 'liga/times'), lista);
-        }
-        document.getElementById("novoTime").value = "";
-    };
-
-    // ATUALIZAR PLACAR
-    window.salvarGols = (id, g1, g2, t1, t2) => {
-        if(!isAdmin) return;
-        update(ref(db, `liga/jogos/${id}`), {
-            t1, t2, g1: parseInt(g1) || 0, g2: parseInt(g2) || 0
+// 🔥 GARANTE ESTRUTURA INICIAL
+async function initDB() {
+    const snap = await get(ref(db, 'liga'));
+    if (!snap.exists()) {
+        await set(ref(db, 'liga'), {
+            times: [],
+            jogos: {},
+            mataHTML: ""
         });
-    };
+    }
+}
+initDB();
 
-    // RESET
-    document.getElementById('btnReset').onclick = () => {
-        if(confirm("Apagar tudo?")) remove(ref(db, 'liga')).then(()=>location.reload());
-    };
+let isAdmin = sessionStorage.getItem('isAdmin') === 'true';
+if(isAdmin) document.getElementById('admin-controls').style.display = 'block';
 
-    // ESCUTA PRINCIPAL
-    onValue(ref(db, 'liga'), (snapshot) => {
-        const data = snapshot.val() || {};
-        const times = data.times || [];
-        const jogos = data.jogos || {};
+document.getElementById('lock').onclick = () => {
+    if(prompt("Senha:") === "123") {
+        sessionStorage.setItem('isAdmin', 'true');
+        location.reload();
+    }
+};
 
-        // TABELA
-        let ranking = {};
-        times.forEach(t => ranking[t] = {pts:0, j:0, v:0, e:0, d:0, gp:0, gc:0});
+const fixId = (s) => s.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
 
-        Object.values(jogos).forEach(j => {
-            if(ranking[j.t1] && ranking[j.t2]) {
-                ranking[j.t1].j++; ranking[j.t2].j++;
-                ranking[j.t1].gp += j.g1; ranking[j.t1].gc += j.g2;
-                ranking[j.t2].gp += j.g2; ranking[j.t2].gc += j.g1;
-                if(j.g1 > j.g2) { ranking[j.t1].pts += 3; ranking[j.t1].v++; ranking[j.t2].d++; }
-                else if(j.g2 > j.g1) { ranking[j.t2].pts += 3; ranking[j.t2].v++; ranking[j.t1].d++; }
-                else { ranking[j.t1].pts += 1; ranking[j.t2].pts += 1; ranking[j.t1].e++; ranking[j.t2].e++; }
-            }
-        });
+// ✅ ADICIONAR TIME (CORRIGIDO)
+document.getElementById('addBtn').onclick = async () => {
+    const nome = document.getElementById("novoTime").value.trim();
+    if(!nome) return;
 
-        let sorted = Object.keys(ranking).map(t => ({time:t, ...ranking[t], sg: ranking[t].gp - ranking[t].gc}));
-        sorted.sort((a,b) => b.pts - a.pts || b.sg - a.sg);
-        window.classificados = sorted;
+    const snap = await get(ref(db, 'liga/times'));
+    let lista = snap.val() ?? [];
 
-        document.querySelector("#tabela tbody").innerHTML = sorted.map((t,i) => `
-            <tr class="${i<4?'top':''}"><td>${i+1}º</td><td>${t.time}</td><td>${t.pts}</td><td>${t.j}</td><td>${t.v}</td><td>${t.e}</td><td>${t.d}</td><td>${t.gp}</td><td>${t.sg}</td></tr>
-        `).join('');
+    if(!lista.includes(nome)) {
+        lista.push(nome);
+        await set(ref(db, 'liga/times'), lista);
+    }
 
-        // JOGOS
-        let htmlJogos = "";
-        for(let i=0; i<times.length; i++) {
-            for(let j=i+1; j<times.length; j++) {
-                const t1 = times[i], t2 = times[j];
-                const id = `m_${fixId(t1)}_${fixId(t2)}`;
-                const p = jogos[id] || {g1:'', g2:''};
-                htmlJogos += `
-                    <div class="jogo">
-                        <div class="time">${t1}</div>
-                        <div class="placar">
-                            <input type="number" value="${p.g1}" ${!isAdmin?'disabled':''} onchange="window.salvarGols('${id}', this.value, this.nextElementSibling.nextElementSibling.value, '${t1}', '${t2}')">
-                            <span>x</span>
-                            <input type="number" value="${p.g2}" ${!isAdmin?'disabled':''} onchange="window.salvarGols('${id}', this.previousElementSibling.previousElementSibling.value, this.value, '${t1}', '${t2}')">
-                        </div>
-                        <div class="time">${t2}</div>
-                    </div>`;
-            }
-        }
-        document.getElementById("jogos").innerHTML = htmlJogos;
-        document.getElementById("mata").innerHTML = data.mataHTML || "";
+    document.getElementById("novoTime").value = "";
+};
+
+// ✅ SALVAR PLACAR (TEMPO REAL)
+window.salvarGols = (id, g1, g2, t1, t2) => {
+    if(!isAdmin) return;
+    update(ref(db, `liga/jogos/${id}`), {
+        t1,
+        t2,
+        g1: parseInt(g1) || 0,
+        g2: parseInt(g2) || 0
+    });
+};
+
+// ✅ RESET
+document.getElementById('btnReset').onclick = () => {
+    if(confirm("Apagar tudo?")) {
+        remove(ref(db, 'liga')).then(() => location.reload());
+    }
+};
+
+// ✅ TEMPO REAL (PRINCIPAL)
+onValue(ref(db, 'liga'), (snapshot) => {
+    const data = snapshot.val() ?? {};
+
+    const times = data.times ?? [];
+    const jogos = data.jogos ?? {};
+
+    // 🔥 TABELA
+    let ranking = {};
+    times.forEach(t => {
+        ranking[t] = {pts:0, j:0, v:0, e:0, d:0, gp:0, gc:0};
     });
 
-    document.getElementById('btnMata').onclick = () => {
-        if(!window.classificados || window.classificados.length < 4) return alert("Mínimo 4 times");
-        const c = window.classificados;
-        const html = `<div style="background:#16213e; padding:10px; border-radius:10px;">
+    Object.values(jogos).forEach(j => {
+        if(!j || !ranking[j.t1] || !ranking[j.t2]) return;
+
+        ranking[j.t1].j++;
+        ranking[j.t2].j++;
+
+        ranking[j.t1].gp += j.g1;
+        ranking[j.t1].gc += j.g2;
+
+        ranking[j.t2].gp += j.g2;
+        ranking[j.t2].gc += j.g1;
+
+        if(j.g1 > j.g2) {
+            ranking[j.t1].pts += 3;
+            ranking[j.t1].v++;
+            ranking[j.t2].d++;
+        } else if(j.g2 > j.g1) {
+            ranking[j.t2].pts += 3;
+            ranking[j.t2].v++;
+            ranking[j.t1].d++;
+        } else {
+            ranking[j.t1].pts++;
+            ranking[j.t2].pts++;
+            ranking[j.t1].e++;
+            ranking[j.t2].e++;
+        }
+    });
+
+    let sorted = Object.keys(ranking).map(t => ({
+        time: t,
+        ...ranking[t],
+        sg: ranking[t].gp - ranking[t].gc
+    }));
+
+    sorted.sort((a,b) => b.pts - a.pts || b.sg - a.sg);
+
+    window.classificados = sorted;
+
+    document.querySelector("#tabela tbody").innerHTML = sorted.map((t,i) => `
+        <tr class="${i<4?'top':''}">
+            <td>${i+1}º</td>
+            <td>${t.time}</td>
+            <td>${t.pts}</td>
+            <td>${t.j}</td>
+            <td>${t.v}</td>
+            <td>${t.e}</td>
+            <td>${t.d}</td>
+            <td>${t.gp}</td>
+            <td>${t.sg}</td>
+        </tr>
+    `).join('');
+
+    // 🔥 JOGOS
+    let htmlJogos = "";
+
+    for(let i=0; i<times.length; i++) {
+        for(let j=i+1; j<times.length; j++) {
+
+            const t1 = times[i];
+            const t2 = times[j];
+            const id = `m_${fixId(t1)}_${fixId(t2)}`;
+
+            const p = jogos[id] ?? {g1:'', g2:''};
+
+            htmlJogos += `
+                <div class="jogo">
+                    <div class="time">${t1}</div>
+                    <div class="placar">
+                        <input type="number" value="${p.g1}" ${!isAdmin?'disabled':''}
+                        onchange="window.salvarGols('${id}', this.value, this.nextElementSibling.nextElementSibling.value, '${t1}', '${t2}')">
+                        <span>x</span>
+                        <input type="number" value="${p.g2}" ${!isAdmin?'disabled':''}
+                        onchange="window.salvarGols('${id}', this.previousElementSibling.previousElementSibling.value, this.value, '${t1}', '${t2}')">
+                    </div>
+                    <div class="time">${t2}</div>
+                </div>
+            `;
+        }
+    }
+
+    document.getElementById("jogos").innerHTML = htmlJogos;
+    document.getElementById("mata").innerHTML = data.mataHTML ?? "";
+});
+
+// ✅ MATA-MATA
+document.getElementById('btnMata').onclick = () => {
+    if(!window.classificados || window.classificados.length < 4) {
+        return alert("Mínimo 4 times");
+    }
+
+    const c = window.classificados;
+
+    const html = `
+        <div style="background:#16213e; padding:10px; border-radius:10px;">
             <p>Semi 1: ${c[0].time} x ${c[3].time}</p>
             <p>Semi 2: ${c[1].time} x ${c[2].time}</p>
-        </div>`;
-        set(ref(db, 'liga/mataHTML'), html);
-    };
+        </div>
+    `;
+
+    set(ref(db, 'liga/mataHTML'), html);
+};
 </script>
 </body></html>
