@@ -90,6 +90,14 @@ const loginHTML = `
 </div>`;
 document.querySelector(".container").insertAdjacentHTML("afterbegin", loginHTML);
 
+document.querySelector(".container").insertAdjacentHTML("afterbegin", loginHTML);
+
+const btnLogin = document.getElementById("btnLogin");
+const email = document.getElementById("email");
+const senha = document.getElementById("senha");
+const loginBox = document.getElementById("loginBox");
+const adminControls = document.getElementById("admin-controls");
+
 btnLogin.onclick = async ()=>{
     try{
         await signInWithEmailAndPassword(auth,email.value,senha.value);
@@ -101,22 +109,23 @@ btnLogin.onclick = async ()=>{
 onAuthStateChanged(auth,(user)=>{
     if(user){
         IsAdmin = true;
-        admin-controls.style.display="block";
+        adminControls.style.display="block";
         loginBox.style.display="none";
 
-        if(!logoutBtn){
+        if(!document.getElementById("logoutBtn")){
             const b = document.createElement("button");
             b.id="logoutBtn";
             b.innerText="Sair";
             b.onclick=()=>signOut(auth);
-            admin-controls.appendChild(b);
+            adminControls.appendChild(b);
         }
     }else{
         IsAdmin=false;
-        admin-controls.style.display="none";
+        adminControls.style.display="none";
         loginBox.style.display="block";
     }
 });
+
 
 // ================= INIT =================
 async function initDB(){
