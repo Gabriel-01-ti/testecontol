@@ -240,8 +240,14 @@ onValue(ref(db,'liga'), snap=>{
 
 // ================= GERAR SEMIS =================
 document.getElementById('btnMata').onclick = async ()=>{
+    
     const c = window.classificados;
-    if(!c || c.length < 4) return alert("Precisa de 4");
+    console.log("Classificados encontrados:", c); // Adicione isso para ver no F12
+    if(!c || c.length < 4) {
+        return alert("Erro: Você precisa de pelo menos 4 times na tabela para gerar o mata-mata.");
+    }
+    // ... resto do código
+        
 
     await set(ref(db,'liga/semis'),{
         semi1:{t1:c[0].time,t2:c[3].time,jogos:{ida:{},volta:{}},pen:[],v:null},
