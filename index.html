@@ -65,56 +65,49 @@
     <span id="lock" style="cursor: pointer; font-size: 24px;">🔒</span>
 </div>
 
-        <script type="module">
+    <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, set, onValue, update, remove, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-            
 const firebaseConfig = {
   apiKey: "AIzaSyDzkYJFDP8a37YK109nBW9yk1kAdOAT6cI",
   authDomain: "appquintals.firebaseapp.com",
   databaseURL: "https://appquintals-default-rtdb.firebaseio.com",
   projectId: "appquintals",
-  storageBucket: "appquintals.firebasestorage.app",
-  messagingSenderId: "400340047471",
-  appId: "1:400340047471:web:2b53d510d0411c1052df9a"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
 
-// 🔐 CRIA LOGIN SIMPLES NA TELA
+const fixId = (s) => s.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+
+// ================= LOGIN =================
 const loginHTML = `
 <div id="loginBox" style="background:#16213e; padding:15px; border-radius:10px; margin-bottom:10px;">
-    <input id="email" placeholder="Email">
-    <input id="senha" type="password" placeholder="Senha">
-    <button id="btnLogin">Entrar</button>
-</div>
-`;
-
+<input id="email" placeholder="Email">
+<input id="senha" type="password" placeholder="Senha">
+<button id="btnLogin">Entrar</button>
+</div>`;
 document.querySelector(".container").insertAdjacentHTML("afterbegin", loginHTML);
 
-// 🔥 LOGIN
 document.getElementById("btnLogin").onclick = async () => {
-    const email = document.getElementById("email").value;
-    const senha = document.getElementById("senha").value;
-
     try {
-        await signInWithEmailAndPassword(auth, email, senha);
-    } catch (e) {
+        await signInWithEmailAndPassword(auth,
+            document.getElementById("email").value,
+            document.getElementById("senha").value
+        );
+    } catch {
         alert("Erro no login");
     }
 };
 
-// 🔥 CONTROLE DE ADMIN
 onAuthStateChanged(auth, (user) => {
     if(user){
         document.getElementById("admin-controls").style.display = "block";
         document.getElementById("loginBox").style.display = "none";
 
-        // botão logout
         if(!document.getElementById("logoutBtn")){
             const btn = document.createElement("button");
             btn.innerText = "Sair";
@@ -122,29 +115,34 @@ onAuthStateChanged(auth, (user) => {
             btn.onclick = () => signOut(auth);
             document.getElementById("admin-controls").appendChild(btn);
         }
-
     } else {
         document.getElementById("admin-controls").style.display = "none";
         document.getElementById("loginBox").style.display = "block";
     }
 });
 
-// 🔥 INICIALIZA BANCO
+// ================= INIT =================
 async function initDB() {
     const snap = await get(ref(db, 'liga'));
     if (!snap.exists()) {
         await set(ref(db, 'liga'), {
             times: [],
             jogos: {},
-            mataHTML: ""
+            semis: null,
+            final: null
         });
     }
 }
 initDB();
 
-const fixId = (s) => s.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+// ================= ENTER ADD TIME =================
+document.getElementById("novoTime").addEventListener("keypress", (e)=>{
+    if(e.key === "Enter"){
+        document.getElementById("addBtn").click();
+    }
+});
 
-// ✅ ADICIONAR TIME
+// ================= ADD TIME =================
 document.getElementById('addBtn').onclick = async () => {
     const nome = document.getElementById("novoTime").value.trim();
     if(!nome) return;
@@ -152,7 +150,7 @@ document.getElementById('addBtn').onclick = async () => {
     const snap = await get(ref(db, 'liga/times'));
     let lista = snap.val() ?? [];
 
-    if(!lista.includes(nome)) {
+    if(!lista.includes(nome)){
         lista.push(nome);
         await set(ref(db, 'liga/times'), lista);
     }
@@ -160,362 +158,240 @@ document.getElementById('addBtn').onclick = async () => {
     document.getElementById("novoTime").value = "";
 };
 
-// ✅ SALVAR PLACAR
+// ================= SALVAR JOGO =================
 window.salvarGols = (id, g1, g2, t1, t2) => {
     update(ref(db, `liga/jogos/${id}`), {
-        t1,
-        t2,
-        g1: parseInt(g1) || 0,
-        g2: parseInt(g2) || 0
+        t1, t2,
+        g1: parseInt(g1)||0,
+        g2: parseInt(g2)||0
     });
 };
 
-// ✅ RESET
-document.getElementById('btnReset').onclick = () => {
-    if(confirm("Apagar tudo?")) {
-        remove(ref(db, 'liga')).then(() => location.reload());
+// ================= EMBARALHAR =================
+function gerarJogos(times){
+    let lista = [];
+    for(let i=0;i<times.length;i++){
+        for(let j=i+1;j<times.length;j++){
+            lista.push([times[i], times[j]]);
+        }
     }
-};
+    return lista.sort(()=>Math.random()-0.5);
+}
 
-// 🔥 TEMPO REAL
-onValue(ref(db, 'liga'), (snapshot) => {
-    const data = snapshot.val() ?? {};
+// ================= LIGA =================
+onValue(ref(db,'liga'), snap=>{
+    const data = snap.val() ?? {};
     const times = data.times ?? [];
     const jogos = data.jogos ?? {};
 
     let ranking = {};
-    times.forEach(t => {
-        ranking[t] = {pts:0, j:0, v:0, e:0, d:0, gp:0, gc:0};
+    times.forEach(t => ranking[t]={pts:0,j:0,v:0,e:0,d:0,gp:0,gc:0});
+
+    Object.values(jogos).forEach(j=>{
+        if(!j || !ranking[j.t1]) return;
+
+        ranking[j.t1].j++; ranking[j.t2].j++;
+        ranking[j.t1].gp+=j.g1; ranking[j.t1].gc+=j.g2;
+        ranking[j.t2].gp+=j.g2; ranking[j.t2].gc+=j.g1;
+
+        if(j.g1>j.g2){ ranking[j.t1].pts+=3; }
+        else if(j.g2>j.g1){ ranking[j.t2].pts+=3; }
+        else { ranking[j.t1].pts++; ranking[j.t2].pts++; }
     });
 
-    Object.values(jogos).forEach(j => {
-        if(!j || !ranking[j.t1] || !ranking[j.t2]) return;
+    let sorted = Object.keys(ranking).map(t=>({
+        time:t,...ranking[t],sg:ranking[t].gp-ranking[t].gc
+    })).sort((a,b)=>b.pts-a.pts||b.sg-a.sg);
 
-        ranking[j.t1].j++;
-        ranking[j.t2].j++;
-
-        ranking[j.t1].gp += j.g1;
-        ranking[j.t1].gc += j.g2;
-
-        ranking[j.t2].gp += j.g2;
-        ranking[j.t2].gc += j.g1;
-
-        if(j.g1 > j.g2) {
-            ranking[j.t1].pts += 3;
-            ranking[j.t1].v++;
-            ranking[j.t2].d++;
-        } else if(j.g2 > j.g1) {
-            ranking[j.t2].pts += 3;
-            ranking[j.t2].v++;
-            ranking[j.t1].d++;
-        } else {
-            ranking[j.t1].pts++;
-            ranking[j.t2].pts++;
-            ranking[j.t1].e++;
-            ranking[j.t2].e++;
-        }
-    });
-
-    let sorted = Object.keys(ranking).map(t => ({
-        time: t,
-        ...ranking[t],
-        sg: ranking[t].gp - ranking[t].gc
-    }));
-
-    sorted.sort((a,b) => b.pts - a.pts || b.sg - a.sg);
     window.classificados = sorted;
 
-    document.querySelector("#tabela tbody").innerHTML = sorted.map((t,i) => `
+    document.querySelector("#tabela tbody").innerHTML = sorted.map((t,i)=>`
         <tr class="${i<4?'top':''}">
-            <td>${i+1}º</td>
-            <td>${t.time}</td>
-            <td>${t.pts}</td>
-            <td>${t.j}</td>
-            <td>${t.v}</td>
-            <td>${t.e}</td>
-            <td>${t.d}</td>
-            <td>${t.gp}</td>
-            <td>${t.sg}</td>
+            <td>${i+1}º</td><td>${t.time}</td><td>${t.pts}</td>
+            <td>${t.j}</td><td>${t.v}</td><td>${t.e}</td>
+            <td>${t.d}</td><td>${t.gp}</td><td>${t.sg}</td>
         </tr>
     `).join('');
 
-    let htmlJogos = "";
+    // jogos
+    const pares = gerarJogos(times);
 
-    for(let i=0; i<times.length; i++) {
-        for(let j=i+1; j<times.length; j++) {
+    let html = "";
+    pares.forEach(([t1,t2])=>{
+        const id = `m_${fixId(t1)}_${fixId(t2)}`;
+        const p = jogos[id] ?? {};
 
-            const t1 = times[i];
-            const t2 = times[j];
-            const id = `m_${fixId(t1)}_${fixId(t2)}`;
-            const p = jogos[id] ?? {g1:'', g2:''};
+        html+=`
+        <div class="jogo">
+            <div class="time">${t1}</div>
+            <div class="placar">
+                <input type="number" value="${p.g1||''}"
+                oninput="salvarGols('${id}',this.value,this.nextElementSibling.nextElementSibling.value,'${t1}','${t2}')">
+                <span>x</span>
+                <input type="number" value="${p.g2||''}"
+                oninput="salvarGols('${id}',this.previousElementSibling.previousElementSibling.value,this.value,'${t1}','${t2}')">
+            </div>
+            <div class="time">${t2}</div>
+        </div>`;
+    });
 
-            htmlJogos += `
-                <div class="jogo">
-                    <div class="time">${t1}</div>
-                    <div class="placar">
-                        <input type="number" value="${p.g1}"
-                        onchange="window.salvarGols('${id}', this.value, this.nextElementSibling.nextElementSibling.value, '${t1}', '${t2}')">
-                        <span>x</span>
-                        <input type="number" value="${p.g2}"
-                        onchange="window.salvarGols('${id}', this.previousElementSibling.previousElementSibling.value, this.value, '${t1}', '${t2}')">
-                    </div>
-                    <div class="time">${t2}</div>
-                </div>
-            `;
-        }
-    }
-
-    document.getElementById("jogos").innerHTML = htmlJogos;
-    document.getElementById("mata").innerHTML = data.mataHTML ?? "";
+    document.getElementById("jogos").innerHTML = html;
 });
 
-// ✅ MATA
-document.getElementById('btnMata').onclick = () => {
-    if(!window.classificados || window.classificados.length < 4) {
-        return alert("Mínimo 4 times");
-    }
-
+// ================= GERAR SEMIS =================
+document.getElementById('btnMata').onclick = async ()=>{
     const c = window.classificados;
+    if(!c || c.length < 4) return alert("Precisa de 4");
 
-    const html = `
-        <div style="background:#16213e; padding:10px; border-radius:10px;">
-            <p>Semi 1: ${c[0].time} x ${c[3].time}</p>
-            <p>Semi 2: ${c[1].time} x ${c[2].time}</p>
-        </div>
-    `;
-
-    set(ref(db, 'liga/mataHTML'), html);
-};
-            // =======================
-// 🔥 GERAR SEMIFINAIS
-// =======================
-document.getElementById('btnMata').onclick = async () => {
-  if(!window.classificados || window.classificados.length < 4){
-    return alert("Precisa de 4 times");
-  }
-
-  const c = window.classificados;
-
-  await set(ref(db, 'liga/semis'), {
-    semi1: { t1:c[0].time, t2:c[3].time, jogos:{ida:{},volta:{}}, penaltis:[], vencedor:null },
-    semi2: { t1:c[1].time, t2:c[2].time, jogos:{ida:{},volta:{}}, penaltis:[], vencedor:null }
-  });
-
-  alert("Semifinais criadas!");
+    await set(ref(db,'liga/semis'),{
+        semi1:{t1:c[0].time,t2:c[3].time,jogos:{ida:{},volta:{}},pen:[],v:null},
+        semi2:{t1:c[1].time,t2:c[2].time,jogos:{ida:{},volta:{}},pen:[],v:null}
+    });
 };
 
-
-// =======================
-// ⚽ SALVAR GOLS SEMI
-// =======================
-window.salvarSemi = (id,tipo,g1,g2)=>{
-  update(ref(db,`liga/semis/${id}/jogos/${tipo}`),{
-    g1: parseInt(g1)||0,
-    g2: parseInt(g2)||0
-  });
+// ================= SEMIS =================
+window.salvarSemi=(id,tipo,g1,g2)=>{
+    update(ref(db,`liga/semis/${id}/jogos/${tipo}`),{
+        g1:parseInt(g1)||0,
+        g2:parseInt(g2)||0
+    });
 };
 
+window.penalti=async(id,t1,t2)=>{
+    const snap=await get(ref(db,`liga/semis/${id}`));
+    let s=snap.val();
 
-// =======================
-// 🥅 PÊNALTIS SEMI (MORTE SÚBITA)
-// =======================
-window.addPenalti = async (id, t1ok, t2ok)=>{
-  const snap = await get(ref(db,`liga/semis/${id}`));
-  let data = snap.val();
+    let lista=s.pen||[];
+    lista.push({t1,t2});
 
-  let lista = data.penaltis || [];
-  lista.push({t1:t1ok, t2:t2ok});
+    let g1=lista.filter(p=>p.t1).length;
+    let g2=lista.filter(p=>p.t2).length;
 
-  let gols1 = lista.filter(p=>p.t1).length;
-  let gols2 = lista.filter(p=>p.t2).length;
-
-  let vencedor = null;
-
-  // após 3 cobranças → qualquer diferença decide
-  if(lista.length >= 3){
-    if(gols1 !== gols2){
-      vencedor = gols1 > gols2 ? "t1" : "t2";
+    let v=null;
+    if(lista.length>=3 && g1!=g2){
+        v=g1>g2?"t1":"t2";
     }
-  }
 
-  await update(ref(db,`liga/semis/${id}`),{
-    penaltis: lista,
-    vencedor
-  });
+    await update(ref(db,`liga/semis/${id}`),{pen:lista,v});
 };
 
-
-// =======================
-// 🎯 RENDER SEMIS
-// =======================
 onValue(ref(db,'liga/semis'),snap=>{
-  const semis = snap.val();
-  if(!semis) return;
+    const semis=snap.val();
+    if(!semis) return;
 
-  let html="";
+    let html="";
 
-  Object.entries(semis).forEach(([id,s])=>{
-    let ida=s.jogos?.ida||{};
-    let volta=s.jogos?.volta||{};
+    Object.entries(semis).forEach(([id,s])=>{
+        let ida=s.jogos.ida||{};
+        let volta=s.jogos.volta||{};
 
-    let total1=(ida.g1||0)+(volta.g2||0);
-    let total2=(ida.g2||0)+(volta.g1||0);
+        let t1=(ida.g1||0)+(volta.g2||0);
+        let t2=(ida.g2||0)+(volta.g1||0);
 
-    let vencedor=null;
+        html+=`
+        <div style="background:#16213e;padding:10px;margin:10px 0;">
+        <h4>${s.t1} x ${s.t2}</h4>
 
-    if(total1>total2) vencedor=s.t1;
-    else if(total2>total1) vencedor=s.t2;
-    else if(s.vencedor) vencedor = s.vencedor==="t1"?s.t1:s.t2;
+        Ida
+        <input type="number" value="${ida.g1||''}" oninput="salvarSemi('${id}','ida',this.value,this.nextElementSibling.value)"> x
+        <input type="number" value="${ida.g2||''}" oninput="salvarSemi('${id}','ida',this.previousElementSibling.value,this.value)">
 
-    html+=`
-    <div style="background:#16213e; padding:10px; border-radius:10px; margin:10px 0;">
-      <h4>${s.t1} x ${s.t2}</h4>
+        Volta
+        <input type="number" value="${volta.g1||''}" oninput="salvarSemi('${id}','volta',this.value,this.nextElementSibling.value)"> x
+        <input type="number" value="${volta.g2||''}" oninput="salvarSemi('${id}','volta',this.previousElementSibling.value,this.value)">
 
-      <p>Ida</p>
-      <input type="number" value="${ida.g1||''}" onchange="salvarSemi('${id}','ida',this.value,this.nextElementSibling.value)">
-      x
-      <input type="number" value="${ida.g2||''}" onchange="salvarSemi('${id}','ida',this.previousElementSibling.value,this.value)">
+        <p>Agregado: ${t1} x ${t2}</p>
 
-      <p>Volta</p>
-      <input type="number" value="${volta.g1||''}" onchange="salvarSemi('${id}','volta',this.value,this.nextElementSibling.value)">
-      x
-      <input type="number" value="${volta.g2||''}" onchange="salvarSemi('${id}','volta',this.previousElementSibling.value,this.value)">
+        ${t1===t2 && !s.v ? `
+        <button onclick="penalti('${id}',true,false)">⚽ ${s.t1}</button>
+        <button onclick="penalti('${id}',false,true)">⚽ ${s.t2}</button>
+        <button onclick="penalti('${id}',false,false)">Erram</button>
+        `:""}
 
-      <p><b>Agregado: ${total1} x ${total2}</b></p>
+        ${s.v ? `<h3>Vencedor: ${s.v==="t1"?s.t1:s.t2}</h3>`:""}
 
-      ${
-        total1===total2 && !s.vencedor
-        ? `
-        <p>Pênaltis</p>
-        <button onclick="addPenalti('${id}',true,false)">${s.t1} ⚽</button>
-        <button onclick="addPenalti('${id}',false,true)">${s.t2} ⚽</button>
-        <button onclick="addPenalti('${id}',false,false)">Ambos erram</button>
-        `
-        : ""
-      }
+        </div>`;
+    });
 
-      ${vencedor?`<h3>Vencedor: ${vencedor}</h3>`:""}
-    </div>
-    `;
-  });
-
-  document.getElementById("mata").innerHTML=html;
+    document.getElementById("mata").innerHTML = html;
 });
 
-
-// =======================
-// 🔒 FINALIZAR SEMIS
-// =======================
+// ================= FINALIZAR SEMIS =================
 document.getElementById('btnFinalizarSemis').onclick = async ()=>{
-  const semis = (await get(ref(db,'liga/semis'))).val();
+    const semis=(await get(ref(db,'liga/semis'))).val();
 
-  if(!semis?.semi1?.vencedor || !semis?.semi2?.vencedor){
-    return alert("Finalize as semis!");
-  }
+    if(!semis.semi1.v || !semis.semi2.v) return alert("Termine as semis");
 
-  const t1 = semis.semi1.vencedor==="t1"?semis.semi1.t1:semis.semi1.t2;
-  const t2 = semis.semi2.vencedor==="t1"?semis.semi2.t1:semis.semi2.t2;
+    const t1 = semis.semi1.v==="t1"?semis.semi1.t1:semis.semi1.t2;
+    const t2 = semis.semi2.v==="t1"?semis.semi2.t1:semis.semi2.t2;
 
-  await set(ref(db,'liga/final'),{
-    t1,t2,
-    g1:null,g2:null,
-    penaltis:[],
-    campeao:null
-  });
-
-  alert("Final criada!");
+    await set(ref(db,'liga/final'),{t1,t2,g1:null,g2:null,pen:[],c:null});
 };
 
-
-// =======================
-// 🏆 FINAL (JOGO ÚNICO)
-// =======================
+// ================= FINAL =================
 window.salvarFinal=(g1,g2)=>{
-  update(ref(db,'liga/final'),{
-    g1:parseInt(g1)||0,
-    g2:parseInt(g2)||0
-  });
+    update(ref(db,'liga/final'),{g1:parseInt(g1)||0,g2:parseInt(g2)||0});
 };
 
+window.penFinal=async(t1,t2)=>{
+    const snap=await get(ref(db,'liga/final'));
+    let f=snap.val();
 
-// =======================
-// 🥅 PÊNALTIS FINAL
-// =======================
-window.addPenFinal=async (t1ok,t2ok)=>{
-  const snap=await get(ref(db,'liga/final'));
-  let f=snap.val();
+    let lista=f.pen||[];
+    lista.push({t1,t2});
 
-  let lista=f.penaltis||[];
-  lista.push({t1:t1ok,t2:t2ok});
+    let g1=lista.filter(p=>p.t1).length;
+    let g2=lista.filter(p=>p.t2).length;
 
-  let g1=lista.filter(p=>p.t1).length;
-  let g2=lista.filter(p=>p.t2).length;
+    let c=null;
+    if(lista.length>=3 && g1!=g2){
+        c=g1>g2?"t1":"t2";
+    }
 
-  let campeao=null;
-
-  if(lista.length>=3 && g1!==g2){
-    campeao=g1>g2?"t1":"t2";
-  }
-
-  await update(ref(db,'liga/final'),{
-    penaltis:lista,
-    campeao
-  });
+    await update(ref(db,'liga/final'),{pen:lista,c});
 };
 
-
-// =======================
-// 🎉 RENDER FINAL
-// =======================
 onValue(ref(db,'liga/final'),snap=>{
-  const f=snap.val();
-  if(!f) return;
+    const f=snap.val();
+    if(!f) return;
 
-  let campeao=null;
+    let campeao=null;
 
-  if(f.g1>f.g2) campeao=f.t1;
-  else if(f.g2>f.g1) campeao=f.t2;
-  else if(f.campeao) campeao = f.campeao==="t1"?f.t1:f.t2;
+    if(f.g1>f.g2) campeao=f.t1;
+    else if(f.g2>f.g1) campeao=f.t2;
+    else if(f.c) campeao = f.c==="t1"?f.t1:f.t2;
 
-  let html=`
-  <div style="background:#0f172a; padding:15px; border-radius:10px; margin-top:20px;">
-    <h2 style="text-align:center;">FINAL</h2>
+    let html=`
+    <div style="background:#0f172a;padding:15px;margin-top:20px;">
+    <h2>FINAL</h2>
 
     <div class="jogo">
-      <div class="time">${f.t1}</div>
-      <div class="placar">
-        <input type="number" value="${f.g1||''}" onchange="salvarFinal(this.value,this.nextElementSibling.nextElementSibling.value)">
-        <span>x</span>
-        <input type="number" value="${f.g2||''}" onchange="salvarFinal(this.previousElementSibling.previousElementSibling.value,this.value)">
-      </div>
-      <div class="time">${f.t2}</div>
+    <div class="time">${f.t1}</div>
+    <div class="placar">
+    <input type="number" value="${f.g1||''}" oninput="salvarFinal(this.value,this.nextElementSibling.nextElementSibling.value)">
+    <span>x</span>
+    <input type="number" value="${f.g2||''}" oninput="salvarFinal(this.previousElementSibling.previousElementSibling.value,this.value)">
     </div>
-  `;
-
-  if(f.g1===f.g2 && f.g1!=null && !f.campeao){
-    html+=`
-    <p style="text-align:center;">Pênaltis</p>
-    <div style="text-align:center;">
-      <button onclick="addPenFinal(true,false)">${f.t1} ⚽</button>
-      <button onclick="addPenFinal(false,true)">${f.t2} ⚽</button>
-      <button onclick="addPenFinal(false,false)">Ambos erram</button>
+    <div class="time">${f.t2}</div>
     </div>
     `;
-  }
 
-  if(campeao){
-    html+=`
-    <div style="text-align:center; margin-top:20px;">
-      <h1 class="campeao-animado">🏆 ${campeao}</h1>
-      <p style="opacity:0.7;">CAMPEÃO DA QUINTALS LEAGUE</p>
-    </div>
-    `;
-  }
+    if(f.g1===f.g2 && f.g1!=null && !f.c){
+        html+=`
+        <button onclick="penFinal(true,false)">⚽ ${f.t1}</button>
+        <button onclick="penFinal(false,true)">⚽ ${f.t2}</button>
+        <button onclick="penFinal(false,false)">Erram</button>
+        `;
+    }
 
-  html+=`</div>`;
+    if(campeao){
+        html+=`<h1 class="campeao-animado">🏆 ${campeao}</h1>`;
+    }
 
-  document.getElementById("mata").innerHTML += html;
+    html+=`</div>`;
+
+    document.getElementById("mata").innerHTML += html;
 });
-            
-</script>
+    
+    </script>
 </body></html>
