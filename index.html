@@ -78,7 +78,9 @@ const db = getDatabase(app);
 const auth = getAuth(app);
 
 let IsAdmin = false;
-
+const jogosDiv = document.getElementById("jogos");
+const mata = document.getElementById("mata");
+const tabela = document.getElementById("tabela");
 const fixId = (s) => s.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
 
 // ================= LOGIN =================
