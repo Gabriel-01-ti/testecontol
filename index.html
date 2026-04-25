@@ -390,8 +390,10 @@ window.salvarFinal = async (g1,g2)=>{
 onValue(ref(db,'liga/final'),snap=>{
     const f=snap.val();
     if(!f) return;
+const finalDiv = document.getElementById("final");
+if(!finalDiv) return;
 
-    mata.innerHTML+=`
+finalDiv.innerHTML = `
     <h2>FINAL</h2>
 
     <div class="placar">
