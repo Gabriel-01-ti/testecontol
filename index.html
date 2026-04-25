@@ -53,21 +53,71 @@
     <span id="lock" style="cursor: pointer; font-size: 24px;">🔒</span>
 </div>
 
-<script type="module">
+        <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, set, onValue, update, remove, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
+            
 const firebaseConfig = {
-    apiKey: "SUA_KEY",
-    authDomain: "SEU_DOMINIO",
-    databaseURL: "SUA_URL",
-    projectId: "SEU_ID"
+  apiKey: "AIzaSyDzkYJFDP8a37YK109nBW9yk1kAdOAT6cI",
+  authDomain: "appquintals.firebaseapp.com",
+  databaseURL: "https://appquintals-default-rtdb.firebaseio.com",
+  projectId: "appquintals",
+  storageBucket: "appquintals.firebasestorage.app",
+  messagingSenderId: "400340047471",
+  appId: "1:400340047471:web:2b53d510d0411c1052df9a"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+const auth = getAuth(app);
 
-// 🔥 GARANTE ESTRUTURA INICIAL
+// 🔐 CRIA LOGIN SIMPLES NA TELA
+const loginHTML = `
+<div id="loginBox" style="background:#16213e; padding:15px; border-radius:10px; margin-bottom:10px;">
+    <input id="email" placeholder="Email">
+    <input id="senha" type="password" placeholder="Senha">
+    <button id="btnLogin">Entrar</button>
+</div>
+`;
+
+document.querySelector(".container").insertAdjacentHTML("afterbegin", loginHTML);
+
+// 🔥 LOGIN
+document.getElementById("btnLogin").onclick = async () => {
+    const email = document.getElementById("email").value;
+    const senha = document.getElementById("senha").value;
+
+    try {
+        await signInWithEmailAndPassword(auth, email, senha);
+    } catch (e) {
+        alert("Erro no login");
+    }
+};
+
+// 🔥 CONTROLE DE ADMIN
+onAuthStateChanged(auth, (user) => {
+    if(user){
+        document.getElementById("admin-controls").style.display = "block";
+        document.getElementById("loginBox").style.display = "none";
+
+        // botão logout
+        if(!document.getElementById("logoutBtn")){
+            const btn = document.createElement("button");
+            btn.innerText = "Sair";
+            btn.style.background = "#dc2626";
+            btn.onclick = () => signOut(auth);
+            document.getElementById("admin-controls").appendChild(btn);
+        }
+
+    } else {
+        document.getElementById("admin-controls").style.display = "none";
+        document.getElementById("loginBox").style.display = "block";
+    }
+});
+
+// 🔥 INICIALIZA BANCO
 async function initDB() {
     const snap = await get(ref(db, 'liga'));
     if (!snap.exists()) {
@@ -80,19 +130,9 @@ async function initDB() {
 }
 initDB();
 
-let isAdmin = sessionStorage.getItem('isAdmin') === 'true';
-if(isAdmin) document.getElementById('admin-controls').style.display = 'block';
-
-document.getElementById('lock').onclick = () => {
-    if(prompt("Senha:") === "123") {
-        sessionStorage.setItem('isAdmin', 'true');
-        location.reload();
-    }
-};
-
 const fixId = (s) => s.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
 
-// ✅ ADICIONAR TIME (CORRIGIDO)
+// ✅ ADICIONAR TIME
 document.getElementById('addBtn').onclick = async () => {
     const nome = document.getElementById("novoTime").value.trim();
     if(!nome) return;
@@ -108,9 +148,8 @@ document.getElementById('addBtn').onclick = async () => {
     document.getElementById("novoTime").value = "";
 };
 
-// ✅ SALVAR PLACAR (TEMPO REAL)
+// ✅ SALVAR PLACAR
 window.salvarGols = (id, g1, g2, t1, t2) => {
-    if(!isAdmin) return;
     update(ref(db, `liga/jogos/${id}`), {
         t1,
         t2,
@@ -126,14 +165,12 @@ document.getElementById('btnReset').onclick = () => {
     }
 };
 
-// ✅ TEMPO REAL (PRINCIPAL)
+// 🔥 TEMPO REAL
 onValue(ref(db, 'liga'), (snapshot) => {
     const data = snapshot.val() ?? {};
-
     const times = data.times ?? [];
     const jogos = data.jogos ?? {};
 
-    // 🔥 TABELA
     let ranking = {};
     times.forEach(t => {
         ranking[t] = {pts:0, j:0, v:0, e:0, d:0, gp:0, gc:0};
@@ -174,7 +211,6 @@ onValue(ref(db, 'liga'), (snapshot) => {
     }));
 
     sorted.sort((a,b) => b.pts - a.pts || b.sg - a.sg);
-
     window.classificados = sorted;
 
     document.querySelector("#tabela tbody").innerHTML = sorted.map((t,i) => `
@@ -191,7 +227,6 @@ onValue(ref(db, 'liga'), (snapshot) => {
         </tr>
     `).join('');
 
-    // 🔥 JOGOS
     let htmlJogos = "";
 
     for(let i=0; i<times.length; i++) {
@@ -200,17 +235,16 @@ onValue(ref(db, 'liga'), (snapshot) => {
             const t1 = times[i];
             const t2 = times[j];
             const id = `m_${fixId(t1)}_${fixId(t2)}`;
-
             const p = jogos[id] ?? {g1:'', g2:''};
 
             htmlJogos += `
                 <div class="jogo">
                     <div class="time">${t1}</div>
                     <div class="placar">
-                        <input type="number" value="${p.g1}" ${!isAdmin?'disabled':''}
+                        <input type="number" value="${p.g1}"
                         onchange="window.salvarGols('${id}', this.value, this.nextElementSibling.nextElementSibling.value, '${t1}', '${t2}')">
                         <span>x</span>
-                        <input type="number" value="${p.g2}" ${!isAdmin?'disabled':''}
+                        <input type="number" value="${p.g2}"
                         onchange="window.salvarGols('${id}', this.previousElementSibling.previousElementSibling.value, this.value, '${t1}', '${t2}')">
                     </div>
                     <div class="time">${t2}</div>
@@ -223,7 +257,7 @@ onValue(ref(db, 'liga'), (snapshot) => {
     document.getElementById("mata").innerHTML = data.mataHTML ?? "";
 });
 
-// ✅ MATA-MATA
+// ✅ MATA
 document.getElementById('btnMata').onclick = () => {
     if(!window.classificados || window.classificados.length < 4) {
         return alert("Mínimo 4 times");
@@ -240,5 +274,5 @@ document.getElementById('btnMata').onclick = () => {
 
     set(ref(db, 'liga/mataHTML'), html);
 };
-</script>
+                                        </script>
 </body></html>
