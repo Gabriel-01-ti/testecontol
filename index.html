@@ -288,9 +288,10 @@ onValue(ref(db,'liga/semis'),snap=>{
     let html="";
 
     Object.entries(semis).forEach(([id,s])=>{
-        let ida=s.jogos.ida||{};
-        let volta=s.jogos.volta||{};
+        if(!s) return;
 
+let ida = (s.jogos && s.jogos.ida) ? s.jogos.ida : {};
+let volta = (s.jogos && s.jogos.volta) ? s.jogos.volta : {};
         let t1=(ida.g1||0)+(volta.g2||0);
         let t2=(ida.g2||0)+(volta.g1||0);
 
